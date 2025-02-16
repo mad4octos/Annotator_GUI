@@ -52,9 +52,6 @@ print(predictor.propagate_in_video(inference_state))
 with open(os.path.join(save_points_dir, "video_segments.pkl"), "wb") as f:
 	pickle.dump(video_segments, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open(os.path.join(save_points_dir, "video_segments.pkl"), "wb") as f:
-	pickle.dump(video_segments, f, protocol=pickle.HIGHEST_PROTOCOL)
-	
 np.save(os.path.join(save_points_dir, "out_mask_logits.npy"), out_mask_logits.cpu().numpy())
 
 updated_checkpoint_path = os.path.join(save_points_dir, "sam2_full_model.pt")
