@@ -3,8 +3,7 @@ import sys
 import os 
 
 # Specify the path to the configuration YAML file
-yaml_file_path = "./test_configs.yaml"
-# yaml_file_path = "./GX137102_configs.yaml"
+yaml_file_path = "./template_configs.yaml"
 
 # Read and load the configuration YAML
 configs = utils.read_yaml(yaml_file_path)
