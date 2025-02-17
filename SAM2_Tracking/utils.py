@@ -1,21 +1,15 @@
-import os
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
-from PIL import Image
-from tkinter import *
-from tkinter import ttk
-import tkinter as tk
-from tkinter import filedialog
-from tkVideoPlayer import TkinterVideo
-import cv2
-import customtkinter as ctk
-from PIL import Image, ImageTk
-import pickle
+import yaml 
 import glob
-import memory_profiler
+import pickle
+import os  
 
+# Function to read configuration YAML file
+def read_yaml(file_path):
+    with open(file_path, 'r') as file:
+        config = yaml.safe_load(file)  # safe_load avoids arbitrary code execution
+    return config
 
 def show_mask(mask, ax, obj_id=None, random_color=False):
     if random_color:
@@ -56,36 +50,91 @@ def add_text(ax, text, position, fontsize=12, color='yellow'):
         ha='center',  # Center-align horizontally
         va='bottom'   # Align the text above the mask
     )
-    
-''' 
-def process_video_segment(file_path, video_writer, frame_names, video_dir, fps, out_fps, SAM2_start):
-    with open(file_path, "rb") as f:
-        video_segments = pickle.load(f)
-    
-    print(f"{file_path} successfully loaded!")
-    
-    for out_frame_idx in range(0, len(frame_names)):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.set_title(f"frame {out_frame_idx}/{out_frame_idx * (fps/out_fps) + SAM2_start}")
 
-        image = Image.open(os.path.join(video_dir, frame_names[out_frame_idx]))
-        ax.imshow(image)
+def filter_annotations(annotations_file, fps, SAM2_start):
 
-        if out_frame_idx in video_segments:
-            for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                show_mask(out_mask, ax, obj_id=out_obj_id)
-                
-                mask_coords = np.column_stack(np.where(out_mask))
-                if mask_coords.size > 0:
-                    min_y = mask_coords[:, 0].min()
-                    min_x = mask_coords[mask_coords[:, 0] == min_y][:, 1].mean()
-                    add_text(ax, f"ID: {out_obj_id}", position=(min_x, min_y - 10))
+    ####### READ NPY FILE CONTAINING GUI ANNOTATIONS###########
+    annotations = np.load(annotations_file, allow_pickle=True)
+
+    # Filter out "Fish_Fam" key and modify "Frame" values
+    annotations_filtered = []
+    for ann in annotations:
+        filtered_ann = {}
+        for key, value in ann.items():
+            if key != "Fish_Fam":
+                if key == "Frame":
+                    frame_value = (value - SAM2_start) / (fps / 3)
+                    #Check if frame_valu    e is a decimal
+                    if not frame_value.is_integer():
+                        rounded_frame_value = round(frame_value)
+                        print(f"Warning: Frame value {frame_value:.2f} was rounded to {rounded_frame_value}")
+                        frame_value = rounded_frame_value
+                    filtered_ann[key] = int(frame_value)
+                else:
+                    filtered_ann[key] = value
+        annotations_filtered.append(filtered_ann)
+
+    return annotations_filtered    
+
+def process_annotations_and_predict(annotations_filtered, predictor, inference_state):
+
+    ##### USE ANNOTATIONS FROM GUI TO PREDICT MASKS  ########
+    prompts = {}
+    # Iterate over the annotations and process each one
+    for i, annotation in enumerate(annotations_filtered):
+        # Extract values from the current annotation
+        ann_frame_idx = annotation['Frame']  # Frame index
+        ann_obj_id = int(annotation['fishLabel'])  # Object ID
+        points = np.array([annotation['Location']], dtype=np.float32)  # Point coordinates
+        labels = np.array([annotation['clickType']], dtype=np.int32)  # Positive/Negative click
+
+        # Update the prompts dictionary
+        if ann_obj_id not in prompts:
+            # Initialize with the first points and labels for this object ID
+            prompts[ann_obj_id] = (points, labels)
+        else:
+            # Append the new points and labels
+            existing_points, existing_labels = prompts[ann_obj_id]
+            updated_points = np.vstack((existing_points, points))
+            updated_labels = np.hstack((existing_labels, labels))
+            prompts[ann_obj_id] = (updated_points, updated_labels)
+
+        # Explicitly call predictor.add_new_points_or_box for this specific annotation
+        _, out_obj_ids, out_mask_logits = predictor.add_new_points_or_box(
+            inference_state=inference_state,
+            frame_idx=ann_frame_idx,
+            obj_id=ann_obj_id,
+            points=points,
+            labels=labels,
+        )
         
-        fig.canvas.draw()
-        frame = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-        #frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        
-        video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-        plt.close(fig)
-'''
+def count_files_in_directory(directory):
+    count = sum(1 for entry in os.scandir(directory) if entry.is_file())
+    return count
+
+def reconstruct_video_segments(video_seg_save_dir):
+    # TODO: figure out if there is a way where we don't need to reconstruct the full dictionary 
+
+    video_segments = {}
+
+    # Grab all .pkl files in video_seg_save_dir
+    pickle_file_paths = glob.glob(f'{video_seg_save_dir}*.pkl')
+
+    # Sort the file paths
+    pickle_file_paths = sorted(pickle_file_paths)
+    
+    # List all pickle files in the specified directory
+    for pickle_path in pickle_file_paths:
+        try:
+            # Open the pickle file and load the dictionary
+            with open(pickle_path, 'rb') as f:
+                data = pickle.load(f)
+                # Merge the data (assuming it's a dictionary)
+                if isinstance(data, dict):
+                    video_segments.update(data)
+                else:
+                    print(f"Warning: {filename} does not contain a dictionary.")
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+    
+    return video_segments
