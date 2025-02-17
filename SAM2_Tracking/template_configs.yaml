@@ -1,0 +1,40 @@
+
+# Inputs passed to build_sam2_video_predictor
+sam2_checkpoint: "/path/to/sam2/checkpoints/sam2.1_hiera_large.pt"
+model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
+
+# The annotations file 
+annotations_file: "/path/to/test_annotations.npy" 
+
+fps: 24
+SAM2_start: 0
+
+# Path to the directory that contains the frames
+video_dir: "/path/to/frames_dir"
+
+# Path to the directory where model_cfg resides
+sam2_install_dir: "/path/to/sam2/sam2/"
+
+# Whether to offload the video frames to CPU memory.
+# Turning on this option saves the GPU memory with only a very small overhead
+offload_video_to_cpu: True
+
+# Whether to offload the state to CPU memory. 
+# Turning this option on can save GPU memory
+offload_state_to_cpu: True
+
+# Lazy load images, can conserve memory, if it is needed
+async_loading_frames: False
+
+# Specifies the batch size for saving video_segmentation 
+video_seg_batch: 10  
+
+# The directory to save the video_segments dictionary batches 
+video_seg_save_dir: "./test_video_segments/"
+
+###################################
+# Video creation specific configs #
+###################################
+output_video_path: "./test_video.mp4"
+out_fps: 3
+frame_size: [600, 400]
