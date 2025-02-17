@@ -55,8 +55,6 @@ def propagate_masks(predictor, inference_state, video_dir, video_seg_batch, vide
 
     num_frames = utils.count_files_in_directory(video_dir)
 
-    print(f"num_frames {num_frames}")
-
     # you can modify the start and number of frames 
     # see: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
 
