@@ -1,4 +1,4 @@
-from workflow_funcs import * 
+from workflow_functions import * 
 import sys 
 import os 
 
