@@ -1,55 +1,34 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import yaml 
 import glob
-import pickle
+import numpy as np  
 import os  
+import plot_utils
+from torchvision.io import decode_image
+from torchvision.utils import draw_segmentation_masks
+from torchvision import transforms
+from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
 
-# Function to read configuration YAML file
-def read_yaml(file_path):
-    with open(file_path, 'r') as file:
+def read_config_yaml(config_path):
+    """
+    Reads in configuration YAML file and converts it
+    to a dictionary. 
+
+    Parameters
+    ----------
+    config_path : str
+        The full path to the configuration file 
+
+    Returns
+    -------
+    dict
+        Dictionary of configuration parameters 
+    """
+
+    with open(config_path, 'r') as file:
         config = yaml.safe_load(file)  # safe_load avoids arbitrary code execution
+
     return config
-
-def show_mask(mask, ax, obj_id=None, random_color=False):
-    if random_color:
-        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-    else:
-        cmap = plt.get_cmap("tab10")
-        cmap_idx = 0 if obj_id is None else obj_id
-        color = np.array([*cmap(cmap_idx)[:3], 0.6])
-    h, w = mask.shape[-2:]
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-    ax.imshow(mask_image)
-
-
-def show_points(coords, labels, ax, marker_size=200):
-    pos_points = coords[labels==1]
-    neg_points = coords[labels==0]
-    ax.scatter(pos_points[:, 0], pos_points[:, 1], color='green', marker='*', s=marker_size, edgecolor='white', linewidth=1.25)
-    ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='white', linewidth=1.25)
-
-
-def show_box(box, ax):
-    x0, y0 = box[0], box[1]
-    w, h = box[2] - box[0], box[3] - box[1]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
-
-def add_text(ax, text, position, fontsize=12, color='yellow'):
-    """Adds a text box to the given axis."""
-    x, y = position
-    # Transform position from pixel coordinates to axis coordinates
-    x_axis, y_axis = ax.transData.transform((x, y))
-    ax.figure.text(
-        x_axis / ax.figure.bbox.width,
-        y_axis / ax.figure.bbox.height,
-        text,
-        fontsize=fontsize,
-        color=color,
-        bbox=dict(facecolor='black', alpha=0.7, edgecolor='none'),
-        ha='center',  # Center-align horizontally
-        va='bottom'   # Align the text above the mask
-    )
 
 def filter_annotations(annotations_file, fps, SAM2_start):
 
@@ -107,34 +86,91 @@ def process_annotations_and_predict(annotations_filtered, predictor, inference_s
             points=points,
             labels=labels,
         )
-        
-def count_files_in_directory(directory):
-    count = sum(1 for entry in os.scandir(directory) if entry.is_file())
-    return count
 
-def reconstruct_video_segments(video_seg_save_dir):
-    # TODO: figure out if there is a way where we don't need to reconstruct the full dictionary 
+def get_jpg_paths(jpg_dir):
+    """
+    Compiles a list of paths for all JPGs in the provided directory. 
 
-    video_segments = {}
+    Parameters
+    ----------
+    jpg_dir : str
+        The full path to the directory containing JPGs
 
-    # Grab all .pkl files in video_seg_save_dir
-    pickle_file_paths = glob.glob(f'{video_seg_save_dir}*.pkl')
+    Returns
+    -------
+    list
+        List of sorted JPG paths
+    """
 
-    # Sort the file paths
-    pickle_file_paths = sorted(pickle_file_paths)
-    
-    # List all pickle files in the specified directory
-    for pickle_path in pickle_file_paths:
-        try:
-            # Open the pickle file and load the dictionary
-            with open(pickle_path, 'rb') as f:
-                data = pickle.load(f)
-                # Merge the data (assuming it's a dictionary)
-                if isinstance(data, dict):
-                    video_segments.update(data)
-                else:
-                    print(f"Warning: {filename} does not contain a dictionary.")
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-    
-    return video_segments
+    # Grab all files with extensions .jpg, .jpeg, .JPG, .JPEG in jpg_dir
+    jpg_files = glob.glob(os.path.join(jpg_dir, '*.[jJ][pP][gG]'))
+    jpeg_files = glob.glob(os.path.join(jpg_dir, '*.[jJ][pP][eE][gG]'))
+
+    # TODO: make these Path objects 
+    jpg_paths = jpg_files + jpeg_files
+
+    return sorted(jpg_paths)
+
+def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
+                            font_size=75, font_color="red", alpha=0.6):
+    """
+    Draws segmentation masks on top of the frame and saves 
+    the generated image to `img_save_dir`. 
+
+    Parameters
+    ----------
+    bool_masks : Tensor of bools
+        A tensor of shape (number of masks, frame pixel height, frame pixel width)
+        representing the generated segmentation masks
+    img_save_dir : str
+        The path where we want to save the generated image
+    frame_paths : list of str
+        A list of JPG paths representing the frames 
+    out_frame_idx : int
+        Index representing the frame we predicted the masks for 
+    out_obj_ids : list of int
+        A list of integers representing the ids for each mask
+    colors : list of tuples of ints
+        A list of tuples representing RGB colors for each segmentation mask
+    font_size : int
+        Font size for drawn object IDs
+    font_color : str
+        Color of font for the drawn object IDs
+    alpha : float 
+        Alpha value for the segmentation masks 
+
+    Returns
+    -------
+    list
+        List of sorted JPG paths
+    """    
+
+    # Draw each mask on top of image representing the frame
+    image_w_seg = decode_image(frame_paths[out_frame_idx])
+    for i in range(bool_masks.shape[0]):
+
+        # Only draw masks that contain True values 
+        if bool_masks[i].any():
+            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[i], alpha=alpha)
+
+    # Convert image with drawn segmentation masks to PIL Image
+    to_pil = transforms.ToPILImage()
+    img_pil = to_pil(image_w_seg)
+
+    # Draw text annotations
+    draw = ImageDraw.Draw(img_pil)
+    font = ImageFont.load_default(size=font_size)
+
+    # Compute centroids for all masks so we can place the object ID on the centroid 
+    centroids = [plot_utils.get_centroid(mask) for mask in bool_masks]
+
+    # Draw the object ID at the centroid
+    for centroid, label in zip(centroids, out_obj_ids):
+        if centroid:
+            draw.text(centroid, str(label), fill=font_color, font=font)
+
+    # Get frame name using the stem of the frame JPG
+    frame_id = Path(frame_paths[out_frame_idx]).stem
+
+    # Save the final image
+    img_pil.save(img_save_dir + f"/{frame_id}.jpg")
