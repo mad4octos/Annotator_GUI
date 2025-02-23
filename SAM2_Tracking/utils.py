@@ -42,7 +42,7 @@ def filter_annotations(annotations_file, fps, SAM2_start):
         for key, value in ann.items():
             if key != "Fish_Fam":
                 if key == "Frame":
-                    frame_value = (value - SAM2_start) / (fps / 3)
+                    frame_value = (value - SAM2_start - 1) / (fps / 3)
                     #Check if frame_valu    e is a decimal
                     if not frame_value.is_integer():
                         rounded_frame_value = round(frame_value)
