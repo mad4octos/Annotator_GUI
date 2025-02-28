@@ -8,6 +8,9 @@ from torchvision.utils import draw_segmentation_masks
 from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
+import cv2
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def read_config_yaml(config_path):
     """
@@ -54,38 +57,6 @@ def filter_annotations(annotations_file, fps, SAM2_start):
         annotations_filtered.append(filtered_ann)
 
     return annotations_filtered    
-
-def process_annotations_and_predict(annotations_filtered, predictor, inference_state):
-
-    ##### USE ANNOTATIONS FROM GUI TO PREDICT MASKS  ########
-    prompts = {}
-    # Iterate over the annotations and process each one
-    for i, annotation in enumerate(annotations_filtered):
-        # Extract values from the current annotation
-        ann_frame_idx = annotation['Frame']  # Frame index
-        ann_obj_id = int(annotation['fishLabel'])  # Object ID
-        points = np.array([annotation['Location']], dtype=np.float32)  # Point coordinates
-        labels = np.array([annotation['clickType']], dtype=np.int32)  # Positive/Negative click
-
-        # Update the prompts dictionary
-        if ann_obj_id not in prompts:
-            # Initialize with the first points and labels for this object ID
-            prompts[ann_obj_id] = (points, labels)
-        else:
-            # Append the new points and labels
-            existing_points, existing_labels = prompts[ann_obj_id]
-            updated_points = np.vstack((existing_points, points))
-            updated_labels = np.hstack((existing_labels, labels))
-            prompts[ann_obj_id] = (updated_points, updated_labels)
-
-        # Explicitly call predictor.add_new_points_or_box for this specific annotation
-        _, out_obj_ids, out_mask_logits = predictor.add_new_points_or_box(
-            inference_state=inference_state,
-            frame_idx=ann_frame_idx,
-            obj_id=ann_obj_id,
-            points=points,
-            labels=labels,
-        )
 
 def get_jpg_paths(jpg_dir):
     """
@@ -174,3 +145,94 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
 
     # Save the final image
     img_pil.save(img_save_dir + f"/{frame_id}.jpg")
+
+def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size):
+    """
+    Compiles the JPGs in `masked_imgs_dir` into an MP4. 
+
+    Parameters
+    ----------
+    masked_imgs_dir : str 
+        The full path to the directory containing the JPGs we 
+        will use to create the video 
+    video_file : str
+        The name of the video file to be created 
+    video_fps : int
+        The frames per second for the video 
+    video_frame_size : list or tuple of ints
+        Specifies the frame size for the video, with the first 
+        element representing the width and the second corresponding
+        to the height
+    """
+
+    masked_img_paths = get_jpg_paths(masked_imgs_dir)
+
+    if not masked_img_paths:
+        print(f"No images found in the path: {masked_imgs_dir}.")
+        return
+
+    # Set the width and height of the video 
+    width = video_frame_size[0]
+    height = video_frame_size[1]
+    
+    # Define the video codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video = cv2.VideoWriter(video_file, fourcc, video_fps, video_frame_size)
+
+    # Define font properties
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = max(0.5, width / 1000)  # Adjust based on image size
+    font_thickness = 2
+    text_color = (255, 255, 255)  # White text
+
+    # Write each image to the video with modifications
+    for frame_idx, img_path in tqdm(enumerate(masked_img_paths), total=len(masked_img_paths)):
+
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"Warning: Could not read {img_path}, skipping.")
+            continue
+
+        # Get original image dimensions (before resizing)
+        orig_height, orig_width = img.shape[:2]
+        
+        # Resize the image
+        img = cv2.resize(img, video_frame_size)
+
+        # Create a matplotlib figure
+        fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+
+        # Display the image
+        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+
+        # Set title with frame number
+        ax.set_title(f"Frame {frame_idx + 1}/{len(masked_img_paths)}", fontsize=16)
+
+        # Set tick marks based on the original image dimensions
+        ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks
+        ax.set_xticklabels(np.linspace(0, orig_width, num=10, dtype=int))  # Map to original width
+        ax.set_yticks(np.linspace(0, height, num=10))
+        ax.set_yticklabels(np.linspace(0, orig_height, num=10, dtype=int))  # Map to original height
+
+        # Set axis labels
+        ax.set_xlabel("Pixel value")
+        ax.set_ylabel("Pixel value")
+
+        # Remove tick labels to keep only marks
+        ax.tick_params(axis='both', labelsize=10, color='black')
+
+        # Convert Matplotlib figure to an image
+        fig.canvas.draw()
+        frame = np.array(fig.canvas.renderer.buffer_rgba())
+
+        # Convert RGBA to BGR for OpenCV
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+
+        # Write the frame to the video
+        video.write(frame)
+
+        # Close the figure to save memory
+        plt.close(fig)
+    
+    # Release the video writer
+    video.release()
