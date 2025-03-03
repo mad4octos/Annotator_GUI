@@ -1,5 +1,4 @@
-from utils import read_config_yaml
-from workflow_functions import write_output_video
+from utils import read_config_yaml, write_output_video
 
 # Specify the path to the configuration YAML file
 yaml_file_path = "./test_configs.yaml"
