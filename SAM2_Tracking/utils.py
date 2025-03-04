@@ -11,6 +11,7 @@ from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pandas as pd 
 
 def read_config_yaml(config_path):
     """
@@ -33,30 +34,68 @@ def read_config_yaml(config_path):
 
     return config
 
-def filter_annotations(annotations_file, fps, SAM2_start):
+def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None, 
+                       df_columns=None, frame_col_name=None):
+    """
+    Reads in a dictionary of annotations and converts it to a Pandas 
+    DataFrame. Additionally, adjusts provided annotations so the 
+    frame value aligns with SAM2. Adjustment is dictated by the 
+    formula: `(frame_number - SAM2_start - 1) / (fps / 3)`, which 
+    is then rounded and turned into an integer. 
 
-    ####### READ NPY FILE CONTAINING GUI ANNOTATIONS###########
+    Parameters
+    ----------
+    annotations_file : str
+        The full path to the annotation file
+    fps : int
+        The FPS of the unreduced video that the annotations were
+        initially meant for
+    SAM2_start : int
+        Value the ensures the annotated frame value matches up 
+        with the fames that will be ingested by SAM2
+    df_columns : list of str
+        Keys to extract from dictionary that will become the 
+        DataFrame columns
+    frame_col_name : str 
+        The name in `df_columns` that corresponds to the 
+        annotation frame column
+
+    Returns
+    -------
+    Pandas.DataFrame
+        DataFrame with columns `df_columns` with column 
+        `frame_col_name` adjusted
+
+    Examples
+    --------
+    >>> annotations_file = "./my_annotations.npy"
+    >>> fps = 24
+    >>> SAM2_start = 0
+    >>> df_columns = ['Frame', 'ClickType', 'FishLabel', 'Location']
+    >>> frame_col_name = 'Frame'
+    >>> adjust_annotations(annotations_file, fps, SAM2_start, 
+                           df_columns, frame_col_name)
+    """
+
+    # TODO: check that all inputs are correctly provided 
+
+    # Read in npy file corresponding to dict of annotations
     annotations = np.load(annotations_file, allow_pickle=True)
 
-    # Filter out "Fish_Fam" key and modify "Frame" values
-    annotations_filtered = []
-    for ann in annotations:
-        filtered_ann = {}
-        for key, value in ann.items():
-            if key != "Fish_Fam":
-                if key == "Frame":
-                    frame_value = (value - SAM2_start - 1) / (fps / 3)
-                    #Check if frame_valu    e is a decimal
-                    if not frame_value.is_integer():
-                        rounded_frame_value = round(frame_value)
-                        print(f"Warning: Frame value {frame_value:.2f} was rounded to {rounded_frame_value}")
-                        frame_value = rounded_frame_value
-                    filtered_ann[key] = int(frame_value)
-                else:
-                    filtered_ann[key] = value
-        annotations_filtered.append(filtered_ann)
+    # Convert dict to DataFrame 
+    df = pd.DataFrame(list(annotations))
 
-    return annotations_filtered    
+    # Drop all columns, except those in df_columns 
+    df = df[df_columns]
+
+    # Correct annotation frame value, so it coincides with video frame value
+    df[frame_col_name] = (df[frame_col_name] - SAM2_start - 1) / (fps / 3)
+
+    # Round and convert frame value to an integer 
+    # TODO: do we need to provide a warning that a rounding was necessary? 
+    df[frame_col_name] = round(df[frame_col_name]).astype(int)
+
+    return df  
 
 def get_jpg_paths(jpg_dir):
     """
