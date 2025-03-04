@@ -77,6 +77,8 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
                            df_columns, frame_col_name)
     """
 
+    # TODO: in formula 3 is hardcoded, we might want to change that
+
     # TODO: check that all inputs are correctly provided 
 
     # Read in npy file corresponding to dict of annotations
@@ -96,6 +98,77 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     df[frame_col_name] = round(df[frame_col_name]).astype(int)
 
     return df  
+
+def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name=None):
+    """
+    Using `click_type_name` column values of 3 and 4, obtains the enter and 
+    exit frame values for each `obj_name`. Additionally, returns `df`
+    with index `obj_name` and drops `click_type_name` rows with 
+    values of 3 and 4. 
+
+    Parameters
+    ----------
+    df : Pandas.DataFrame 
+        The DataFrame representing the adjusted annotations 
+        that will be chunked 
+    obj_name : str
+        A string representing the column of `df` that will 
+        become the index of returned DataFrames and corresponds 
+        to the object ID
+    frame_name : str 
+        The name that corresponds to the column that contains 
+        frame values
+    click_type_name : str
+        The name of the column in `df` that corresponds to 
+        the click type
+
+    Returns
+    -------
+    obj_frame_chunks : Pandas.DataFrame
+        DataFrame with index `obj_name` and columns 
+        `EnterFrame` and `ExitFrame` representing the 
+        frame the object enters and exits the scene, respectively 
+    df : Pandas.DataFrame
+        Input `df` with index `obj_name` and dropped `click_type_name` 
+        rows with values of 3 and 4.
+
+    Examples
+    --------
+    >>> obj_name = 'FishLabel'
+    >>> frame_name = 'Frame'
+    >>> click_type_name = 'ClickType'
+    >>> get_frame_chunks_df(df, obj_name, frame_name, click_type_name)
+    """
+
+    # TODO: check types of inputs 
+
+    # Modify the incoming df so it has obj_name as its index
+    # TODO: should we do this inplace? 
+    df = df.set_index(obj_name)
+
+    # For each obj_name get frame where the object enters the scene 
+    enter_frame = df[df[click_type_name] == 3][frame_name]
+
+    # TODO: this is temporary so we can test cases where duplication happens
+    if enter_frame.index.duplicated().any():
+        raise RuntimeError("Provided annotations have more than 1 enter frame!")
+    
+    # For each obj_name get frame where the object exits the scene 
+    exit_frame = df[df[click_type_name] == 4][frame_name]
+
+    # TODO: this is temporary so we can test cases where duplication happens
+    if exit_frame.index.duplicated().any():
+        raise RuntimeError("Provided annotations have more than 1 exit frame!")
+
+    # Concatenate columns to improve ease of use later
+    obj_frame_chunks = pd.concat([enter_frame, exit_frame], axis=1)
+    obj_frame_chunks.columns = ['EnterFrame', 'ExitFrame']
+
+    # Drop df rows that have click_type_name values of 3 or 4
+    # TODO: should we do this inplace? 
+    df = df[~df[click_type_name].isin([3, 4])]
+
+    return obj_frame_chunks, df
 
 def get_jpg_paths(jpg_dir):
     """
