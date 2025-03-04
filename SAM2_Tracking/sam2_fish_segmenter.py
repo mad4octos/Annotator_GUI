@@ -131,33 +131,32 @@ class SAM2FishSegmenter:
 
         Parameters
         ----------
-        annotations : List of dict
-            List of dictionaries specifying points with keys: 
-            Frame, fishLabel, Location, and clickType
+        annotations : Pandas.DataFrame
+            DataFrame specifying points with index `obj_id_name`
+            and columns: `frame_idx_name`, `points_name`, and 
+            `labels_name`, with values as specified in the 
+            configuration yaml
 
         Raises
         ------
         ValueError
-            If `annotations` was not a `list` of `dict`
+            If `annotations` was not a `Pandas.DataFrame`
 
         Examples
         --------
-        >>> segmenter.add_annotations(annotations=my_annotations)
+        >>> segmenter.add_annotations(annotations=ann_df)
         """
 
-        if not isinstance(annotations, list):
-            raise TypeError("annotations should be of type list!")
+        if not isinstance(annotations, pd.DataFrame):
+            raise TypeError("annotations should be a Pandas DataFrame!")
 
-        for annotation in annotations:
-
-            if not isinstance(annotation, dict):
-                raise TypeError(f"annotations element {annotation} is not of type dict!")
+        for index, row in annotations.iterrows():
 
             # Extract values from the current annotation
-            ann_frame_idx = annotation['Frame']  # Frame index
-            ann_obj_id = int(annotation['fishLabel'])  # Object ID
-            points = np.array([annotation['Location']], dtype=np.float32)  # Point coordinates
-            labels = np.array([annotation['clickType']], dtype=np.int32)  # Positive/Negative click
+            ann_frame_idx = row[self.configs['frame_idx_name']]  # Frame index
+            ann_obj_id = int(index)  # Object ID
+            points = np.array([row[self.configs['points_name']]], dtype=np.float32)  # Point coordinates
+            labels = np.array([row[self.configs['labels_name']]], dtype=np.int32)  # Positive/Negative click
 
             # Explicitly call predictor.add_new_points_or_box for annotation
             # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L161

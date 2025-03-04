@@ -24,6 +24,18 @@ SAM2_start: 0
 # File specifying annotations for video frames 
 annotations_file: "/path/to/test_annotations.npy" 
 
+# Key in the annotation corresponding to SAM2 frame_idx
+frame_idx_name: 'Frame'
+
+# Key in the annotation corresponding to SAM2 obj_id
+obj_id_name: 'fishLabel'
+
+# Key in the annotation corresponding to SAM2 points
+points_name: 'Location'
+
+# Key in the annotation corresponding to SAM2 labels
+labels_name: 'clickType'
+
 # Whether to offload the video frames to CPU memory.
 # Turning on this option saves the GPU memory with only a very small overhead
 offload_video_to_cpu: True
