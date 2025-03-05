@@ -171,7 +171,7 @@ class SAM2FishSegmenter:
                 labels=labels,
             )
 
-    def run_propagation(self, start_frame_idx=None, max_frame_num_to_track=None):
+    def get_masks(self, start_frame_idx=None, max_frame_num_to_track=None):
         """
         Propagates the prompts to get the masklet across the video using the 
         class predictor and inference state. If configuration variable 
@@ -234,3 +234,55 @@ class SAM2FishSegmenter:
 
         if self.configs["save_masks"]: 
             return frame_masks
+
+    def run_propagation(self):
+        """
+        Runs entire workflow: setting the inference state,
+        collecting and adding annotations, getting SAM2
+        provided masks, and saving masks. This function 
+        expects annotations that have `labels_name` with 
+        enter and exit values of 3 and 4, respectively.
+        """
+
+        # Set inference state for SAM2
+        self.set_inference_state()
+
+        # Get keys in annotations that will become DataFrame columns
+        df_columns = [self.configs["frame_idx_name"], self.configs["labels_name"], 
+                      self.configs["obj_id_name"], self.configs["points_name"]]
+
+        # Convert annotations to a DataFrame and adjust frame values 
+        annotations = utils.adjust_annotations(annotations_file=self.configs["annotations_file"], fps=self.configs["fps"], 
+                                               SAM2_start=self.configs["SAM2_start"], df_columns=df_columns, 
+                                               frame_col_name=self.configs["frame_idx_name"])
+
+        # Get object frame chunks and modified annotations 
+        obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations)
+
+        frame_masks = {}
+        for obj_label in obj_frame_chunks.index:   # TODO: need to modify for multiple index values 
+
+            # Get the enter, exit, and number of frames for obj label 
+            enter_frame = fish_frame_chunks.loc[obj_label]['EnterFrame']
+            exit_frame = fish_frame_chunks.loc[obj_label]['ExitFrame']
+            num_frames = exit_frame - enter_frame
+
+            # Get all of the annotations for the given fishLabel
+            annotation_fish = annotations.loc[obj_label]
+
+            # Get all annotations that have Frame values between enter_frame and exit_frame inclusive 
+            annotation_chunk = annotation_fish[(annotation_fish['Frame'] >= enter_frame) & (annotation_fish['Frame'] <= exit_frame)]
+
+            # Reset inference state for the new incoming annotations 
+            self.predictor.reset_state(segmenter.inference_state)    # TODO: might want to skip for the first entry? 
+
+            # Add point annotations for provided annotation chunk 
+            self.add_annotations(annotations=annotation_chunk)
+
+            # Run propagation on annotation chunk of frames
+            frame_masks += self.get_masks(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+
+        if self.configs["save_masks"]: 
+            # Save frame_masks as pkl file 
+            with open(self.configs["masks_dict_file"], "wb") as file:
+                    pickle.dump(frame_masks, file)

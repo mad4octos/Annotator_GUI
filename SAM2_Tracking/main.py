@@ -44,7 +44,7 @@ for fish_label in fish_frame_chunks.index:
     segmenter.add_annotations(annotations=annotation_chunk)
 
     # Run propagation on annotation chunk of frames
-    frame_masks += segmenter.run_propagation(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+    frame_masks += segmenter.get_masks(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
 
 if segmenter.configs["save_masks"]: 
     # Save frame_masks as pkl file 
