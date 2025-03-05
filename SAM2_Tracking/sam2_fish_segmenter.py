@@ -188,6 +188,12 @@ class SAM2FishSegmenter:
         max_frame_num_to_track : None or int 
             The number of frames to track for SAM2 `propagate_in_video`
 
+        Returns
+        -------
+        dict or None 
+            If configuration `save_masks` is `True`, returns `frame_masks` 
+            filled with each object's mask for each frame, else returns `None`
+
         Examples
         --------
         >>> segmenter.run_propagation(start_frame_idx=0, max_frame_num_to_track=100)
@@ -197,16 +203,16 @@ class SAM2FishSegmenter:
             # Generate a list of RGB colors for segmentation masks 
             colors = plot_utils.get_spaced_colors(100)
 
-        # if self.configs["save_masks"]:
-        #     # Initialize dictionary of masks for each frame
-        #     frame_masks = {} # TODO: modify 
+        if self.configs["save_masks"]:
+            # Initialize dictionary of masks for each frame
+            frame_masks = {key: {} for key in range(len(self.frame_paths))}
+
 
         # Perform prediction of masklets across video frames 
         # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
         for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(self.inference_state,
                                                                                              start_frame_idx=start_frame_idx, 
                                                                                              max_frame_num_to_track=max_frame_num_to_track):
-            
 
             # Create Bool mask and delete unneeded tensor
             bool_masks = out_mask_logits > 0.0
@@ -215,9 +221,10 @@ class SAM2FishSegmenter:
             # There's an extra dimension (1) to the masks, remove it
             bool_masks = bool_masks.squeeze(1)
 
-            # if self.configs["save_masks"]: 
-            #     # Convert mask tensor to sparse format and store it
-            #     frame_masks[out_frame_idx] = bool_masks.to_sparse().cpu()
+            if self.configs["save_masks"]: 
+                # Convert mask tensor to sparse format and store it
+                for obj_id in out_obj_ids:
+                    frame_masks[out_frame_idx][obj_id] = bool_masks.to_sparse().cpu()
 
             if self.configs["save_jpgs"]: 
                 utils.draw_and_save_frame_seg(bool_masks=bool_masks, jpg_save_dir=self.configs["jpg_save_dir"], 
@@ -225,7 +232,5 @@ class SAM2FishSegmenter:
                                               out_obj_ids=out_obj_ids, colors=colors, font_size=self.configs["font_size"], 
                                               font_color=self.configs["font_color"], alpha=self.configs["alpha"])
 
-        # if self.configs["save_masks"]: 
-        #     # Save frame_masks as pkl file 
-        #     with open(self.configs["masks_dict_file"], "wb") as file:
-        #             pickle.dump(frame_masks, file)
+        if self.configs["save_masks"]: 
+            return frame_masks

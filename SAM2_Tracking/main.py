@@ -23,14 +23,7 @@ annotations_filtered = pd.DataFrame(list(annotations_filtered))
 
 fish_frame_chunks, annotations_filtered = utils.get_frame_chunks_df(df=annotations_filtered)
 
-# print(f"fish_frame_chunks: {fish_frame_chunks}")
-
-# Create list of keys corresponding to the Frame value 
-keys = [str(i) for i in range(len(segmenter.frame_paths))]
-
-# Initialize a dictionary with provided keys and set values as empty dictionaries
-frame_masks = {key: {} for key in keys}
-
+frame_masks = {}
 annotations = annotations_filtered
 for fish_label in fish_frame_chunks.index:
 
@@ -51,4 +44,9 @@ for fish_label in fish_frame_chunks.index:
     segmenter.add_annotations(annotations=annotation_chunk)
 
     # Run propagation on annotation chunk of frames
-    segmenter.run_propagation(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+    frame_masks += segmenter.run_propagation(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+
+if segmenter.configs["save_masks"]: 
+    # Save frame_masks as pkl file 
+    with open(segmenter.configs["masks_dict_file"], "wb") as file:
+            pickle.dump(frame_masks, file)
