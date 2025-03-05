@@ -194,10 +194,10 @@ def get_jpg_paths(jpg_dir):
 
     return sorted(jpg_paths)
 
-def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
+def draw_and_save_frame_seg(bool_masks, jpg_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
                             font_size=75, font_color="red", alpha=0.6):
     """
-    Draws segmentation masks on top of the frame and saves 
+    Draws segmentation masks on top of the frames and saves 
     the generated image to `img_save_dir`. 
 
     Parameters
@@ -205,8 +205,8 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
     bool_masks : Tensor of bools
         A tensor of shape (number of masks, frame pixel height, frame pixel width)
         representing the generated segmentation masks
-    img_save_dir : str
-        The path where we want to save the generated image
+    jpg_save_dir : str
+        The path containing frames that will be overwritten with the masks
     frame_paths : list of str
         A list of JPG paths representing the frames 
     out_frame_idx : int
@@ -228,13 +228,16 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
         List of sorted JPG paths
     """    
 
+    # Get frame name using the stem of the frame JPG
+    frame_id = Path(frame_paths[out_frame_idx]).stem
+
     # Draw each mask on top of image representing the frame
-    image_w_seg = decode_image(frame_paths[out_frame_idx])
+    image_w_seg = decode_image(jpg_save_dir + f"/{frame_id}.jpg")
     for i in range(bool_masks.shape[0]):
 
         # Only draw masks that contain True values 
         if bool_masks[i].any():
-            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[i], alpha=alpha)
+            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[out_obj_ids[i]], alpha=alpha)
 
     # Convert image with drawn segmentation masks to PIL Image
     to_pil = transforms.ToPILImage()
@@ -252,11 +255,8 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
         if centroid:
             draw.text(centroid, str(label), fill=font_color, font=font)
 
-    # Get frame name using the stem of the frame JPG
-    frame_id = Path(frame_paths[out_frame_idx]).stem
-
     # Save the final image
-    img_pil.save(img_save_dir + f"/{frame_id}.jpg")
+    img_pil.save(jpg_save_dir + f"/{frame_id}.jpg")
 
 def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size):
     """

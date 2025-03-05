@@ -1,5 +1,6 @@
 import utils 
 import plot_utils
+import shutil
 import os 
 import sys 
 import torch 
@@ -69,9 +70,10 @@ class SAM2FishSegmenter:
         else:
             raise TypeError("configs was not a str or dict!")
 
-        if self.configs["save_jpgs"]:
-            # Create directory that will store saved frames with masks, if it does not exist 
-            os.makedirs(self.configs["jpg_save_dir"], exist_ok=True)
+        if self.configs["copy_frame_dir"]:
+            # Copy the entire directory # TODO: should we be doing this for the user? 
+            print(f"Since copy_frame_dir=True, copying directory {self.configs["frame_dir"]} to {self.configs["jpg_save_dir"]} ...")
+            shutil.copytree(self.configs["frame_dir"], self.configs["jpg_save_dir"], dirs_exist_ok=True)
 
         # TODO: determine if this is the best place to put this, might be worth removing
         # Append install directory so we can use sam2_checkpoints and model configurations 
@@ -169,33 +171,42 @@ class SAM2FishSegmenter:
                 labels=labels,
             )
 
-    def run_propagation(self):
+    def run_propagation(self, start_frame_idx=None, max_frame_num_to_track=None):
         """
         Propagates the prompts to get the masklet across the video using the 
         class predictor and inference state. If configuration variable 
-        `save_jpgs` is True, generates frame JPGs with segmentation masks
-        drawn on them. If configuration variable `save_masks` is True, 
-        creates a dictionary of sparse Tensors representing the masks and 
-        saves these to a pkl file specified by configuration variable 
+        `save_jpgs` is True, overwrites the JPGs in `jpg_save_dir` with 
+        segmentation masks drawn on them. If configuration variable `save_masks` 
+        is True, creates a dictionary of sparse Tensors representing the masks 
+        and saves these to a pkl file specified by configuration variable 
         `masks_dict_file`. 
+
+        Parameters
+        ----------
+        start_frame_idx : None or int
+            The start frame for SAM2 `propagate_in_video`
+        max_frame_num_to_track : None or int 
+            The number of frames to track for SAM2 `propagate_in_video`
 
         Examples
         --------
-        >>> segmenter.run_propagation()
+        >>> segmenter.run_propagation(start_frame_idx=0, max_frame_num_to_track=100)
         """
 
         if self.configs["save_jpgs"]:
             # Generate a list of RGB colors for segmentation masks 
             colors = plot_utils.get_spaced_colors(100)
 
-        if self.configs["save_masks"]:
-            # Initialize dictionary of masks for each frame
-            frame_masks = {}
+        # if self.configs["save_masks"]:
+        #     # Initialize dictionary of masks for each frame
+        #     frame_masks = {} # TODO: modify 
 
         # Perform prediction of masklets across video frames 
-        for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(self.inference_state):
-            # TODO: In the future, we may want to modify the start and number of frames for propagation. If so, see:
-            # https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
+        # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
+        for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(self.inference_state,
+                                                                                             start_frame_idx=start_frame_idx, 
+                                                                                             max_frame_num_to_track=max_frame_num_to_track):
+            
 
             # Create Bool mask and delete unneeded tensor
             bool_masks = out_mask_logits > 0.0
@@ -204,17 +215,17 @@ class SAM2FishSegmenter:
             # There's an extra dimension (1) to the masks, remove it
             bool_masks = bool_masks.squeeze(1)
 
-            if self.configs["save_masks"]: 
-                # Convert mask tensor to sparse format and store it
-                frame_masks[out_frame_idx] = bool_masks.to_sparse().cpu()
+            # if self.configs["save_masks"]: 
+            #     # Convert mask tensor to sparse format and store it
+            #     frame_masks[out_frame_idx] = bool_masks.to_sparse().cpu()
 
             if self.configs["save_jpgs"]: 
-                utils.draw_and_save_frame_seg(bool_masks=bool_masks, img_save_dir=self.configs["jpg_save_dir"], 
+                utils.draw_and_save_frame_seg(bool_masks=bool_masks, jpg_save_dir=self.configs["jpg_save_dir"], 
                                               frame_paths=self.frame_paths, out_frame_idx=out_frame_idx, 
                                               out_obj_ids=out_obj_ids, colors=colors, font_size=self.configs["font_size"], 
                                               font_color=self.configs["font_color"], alpha=self.configs["alpha"])
 
-        if self.configs["save_masks"]: 
-            # Save frame_masks as pkl file 
-            with open(self.configs["masks_dict_file"], "wb") as file:
-                    pickle.dump(frame_masks, file)
+        # if self.configs["save_masks"]: 
+        #     # Save frame_masks as pkl file 
+        #     with open(self.configs["masks_dict_file"], "wb") as file:
+        #             pickle.dump(frame_masks, file)

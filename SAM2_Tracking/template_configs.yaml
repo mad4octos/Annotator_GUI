@@ -52,7 +52,11 @@ async_loading_frames: False
 ###########################################
 
 # If True, draw segmentation masks on top of frames and save the generated JPGs to jpg_save_dir
+# Note that jpg_save_dir must have all frames in it, if copy_frame_dir is False
 save_jpgs: True
+
+# If True, will copy the directory specified by frame_dir to jpg_save_dir at runtime 
+copy_frame_dir: True
 
 # The full path to the directory we want to save frames with segmentation masks drawn on them
 jpg_save_dir: './generated_jpgs'
