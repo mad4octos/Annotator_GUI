@@ -144,7 +144,7 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
 
     # Modify the incoming df so it has obj_name as its index
     # TODO: should we do this inplace? 
-    df = df.set_index(obj_name)
+    df = df.set_index(obj_name).  # TODO: may want to remove this. 
 
     # For each obj_name get frame where the object enters the scene 
     enter_frame = df[df[click_type_name] == 3][frame_name]

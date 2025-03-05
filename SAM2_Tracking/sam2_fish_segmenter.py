@@ -256,25 +256,25 @@ class SAM2FishSegmenter:
                                                SAM2_start=self.configs["SAM2_start"], df_columns=df_columns, 
                                                frame_col_name=self.configs["frame_idx_name"])
 
-        # Get object frame chunks and modified annotations 
+        # Get object frame chunks and modified annotations (that have labels_name rows with 3/4 values dropped)
         obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations)
 
         frame_masks = {}
-        for obj_label in obj_frame_chunks.index:   # TODO: need to modify for multiple index values 
+        for obj_label in obj_frame_chunks.index:   # TODO: need to modify for multiple index values and change .loc to .iloc
 
             # Get the enter, exit, and number of frames for obj label 
             enter_frame = fish_frame_chunks.loc[obj_label]['EnterFrame']
             exit_frame = fish_frame_chunks.loc[obj_label]['ExitFrame']
             num_frames = exit_frame - enter_frame
 
-            # Get all of the annotations for the given fishLabel
-            annotation_fish = annotations.loc[obj_label]
+            # Get all of the annotations for the given object label
+            obj_annotation = annotations.loc[obj_label]
 
             # Get all annotations that have Frame values between enter_frame and exit_frame inclusive 
-            annotation_chunk = annotation_fish[(annotation_fish['Frame'] >= enter_frame) & (annotation_fish['Frame'] <= exit_frame)]
+            annotation_chunk = obj_annotation[(obj_annotation[self.configs["frame_idx_name"]] >= enter_frame) & (obj_annotation[self.configs["frame_idx_name"]] <= exit_frame)]
 
             # Reset inference state for the new incoming annotations 
-            self.predictor.reset_state(segmenter.inference_state)    # TODO: might want to skip for the first entry? 
+            self.predictor.reset_state(self.inference_state)    # TODO: might want to skip for the first entry? 
 
             # Add point annotations for provided annotation chunk 
             self.add_annotations(annotations=annotation_chunk)
