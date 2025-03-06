@@ -142,32 +142,39 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
 
     # TODO: check types of inputs 
 
-    # Modify the incoming df so it has obj_name as its index
-    df = df.set_index(obj_name)
-
     # For each obj_name get frame where the object enters the scene 
-    enter_frame = df[df[click_type_name] == 3][frame_name]
-
-    # TODO: this is temporary so we can test cases where duplication happens
-    if enter_frame.index.duplicated().any():
-        raise RuntimeError("Provided annotations have more than 1 enter frame!")
+    enter_frame = df[df[click_type_name] == 3][[obj_name, frame_name]].astype(int) 
+    enter_frame = enter_frame.sort_values(by=obj_name, ascending=True)
     
     # For each obj_name get frame where the object exits the scene 
-    exit_frame = df[df[click_type_name] == 4][frame_name]
+    exit_frame = df[df[click_type_name] == 4][[obj_name, frame_name]].astype(int) 
+    exit_frame = exit_frame.sort_values(by=obj_name, ascending=True)
 
-    # TODO: this is temporary so we can test cases where duplication happens
-    if exit_frame.index.duplicated().any():
-        raise RuntimeError("Provided annotations have more than 1 exit frame!")
+    # TODO: drop obj_name from exit_frame 
+
+    print(enter_frame.shape)
+    print(exit_frame.shape)
+
+    print(enter_frame[obj_name].values)
+    print(exit_frame[obj_name].values)
+
+    if (enter_frame.shape != exit_frame.shape) or np.array_equal(enter_frame[obj_name].values, exit_frame[obj_name].values):
+        raise RuntimeError(f"A {obj_name} does not have both an enter and exit point!")
 
     # Concatenate columns to improve ease of use later
-    obj_frame_chunks = pd.concat([enter_frame, exit_frame], axis=1)
-    obj_frame_chunks.columns = ['EnterFrame', 'ExitFrame']
+    obj_frame_chunks = pd.concat([enter_frame.reset_index(drop=True), exit_frame.reset_index(drop=True)], axis=1)
+    obj_frame_chunks.columns = [obj_name, 'EnterFrame', 'ExitFrame']
+
+    print(obj_frame_chunks)
 
     # Drop df rows that have click_type_name values of 3 or 4
     df = df[~df[click_type_name].isin([3, 4])]
 
     # Reset index of obj_frame_chunks (improves downstream processing)
-    obj_frame_chunks = obj_frame_chunks.reset_index()
+    # obj_frame_chunks = obj_frame_chunks.reset_index()
+
+    # Modify the incoming df so it has obj_name as its index
+    df = df.set_index(obj_name)
 
     return obj_frame_chunks, df
 
