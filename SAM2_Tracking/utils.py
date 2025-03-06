@@ -144,19 +144,19 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
 
     # For each obj_name get frame where the object enters the scene 
     enter_frame = df[df[click_type_name] == 3][[obj_name, frame_name]].astype(int) 
-    enter_frame = enter_frame.sort_values(by=obj_name, ascending=True)
+    enter_frame = enter_frame.sort_values(by=[obj_name, frame_name], ascending=True)
     
     # For each obj_name get frame where the object exits the scene 
     exit_frame = df[df[click_type_name] == 4][[obj_name, frame_name]].astype(int) 
-    exit_frame = exit_frame.sort_values(by=obj_name, ascending=True)
+    exit_frame = exit_frame.sort_values(by=[obj_name, frame_name], ascending=True)
 
     # TODO: drop obj_name from exit_frame 
 
     print(enter_frame.shape)
     print(exit_frame.shape)
 
-    print(enter_frame[obj_name].values)
-    print(exit_frame[obj_name].values)
+    print(enter_frame)
+    print(exit_frame)
 
     if (enter_frame.shape != exit_frame.shape) or np.array_equal(enter_frame[obj_name].values, exit_frame[obj_name].values):
         raise RuntimeError(f"A {obj_name} does not have both an enter and exit point!")
