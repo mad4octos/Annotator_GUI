@@ -1,29 +1,21 @@
-from workflow_functions import * 
-import sys 
-import os 
+from sam2_fish_segmenter import SAM2FishSegmenter
+import torch
+import utils  
 
 # Specify the path to the configuration YAML file
 yaml_file_path = "./template_configs.yaml"
 
-# Read and load the configuration YAML
-configs = utils.read_yaml(yaml_file_path)
+# Set device for PyTorch 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Append install directory so we can use sam2_checkpoints and model configurations 
-sys.path.append(configs["sam2_install_dir"])
+segmenter = SAM2FishSegmenter(configs=yaml_file_path, device=device)
 
-# Create directory that will store video_segments, if it does not exist 
-os.makedirs(configs["video_seg_save_dir"], exist_ok=True)
+segmenter.set_inference_state()
 
-predictor = initialize_predictor(configs["sam2_checkpoint"], configs["model_cfg"])
+# TODO: should we create a config file specifically for these? 
+annotations_filtered  = utils.filter_annotations(annotations_file=segmenter.configs["annotations_file"], 
+                                                 fps=segmenter.configs["fps"], SAM2_start=segmenter.configs["SAM2_start"])
 
-inference_state = predict_masks(predictor, configs["annotations_file"], configs["fps"], configs["SAM2_start"], 
-                                configs["video_dir"], configs["offload_video_to_cpu"], 
-                                configs["offload_state_to_cpu"], configs["async_loading_frames"])
+segmenter.add_annotations(annotations=annotations_filtered)
 
-propagate_masks(predictor, inference_state, video_dir=configs["video_dir"], 
-                video_seg_batch=configs["video_seg_batch"], video_seg_sav_dir=configs["video_seg_save_dir"])
-
-#Save SAM2 model checkpoint
-# updated_checkpoint_path=os.path.join(save_points_dir, "updated_checkpoint_2.pt")
-# torch.save(predictor.state_dict(), updated_checkpoint_path)
-# print(f"Model checkpoint saved to: {updated_checkpoint_path}")
+segmenter.run_propagation()
