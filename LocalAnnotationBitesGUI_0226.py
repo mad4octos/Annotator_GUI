@@ -5,6 +5,7 @@ from tkinter import *
 from tkinter import ttk, filedialog
 from tkinter import messagebox
 import customtkinter as ctk
+from collections import defaultdict
 from PIL import Image, ImageTk
 import csv
 import os
@@ -256,8 +257,51 @@ def import_annotations():
         # Handle any errors (e.g., file not found, invalid format, etc.)
         messagebox.showerror("Error", f"An error occurred while importing annotations: {str(e)}")
 
+def check_annotations():
+    """
+    Checks that for every fishLabel in annotations, the number of entries and exits are equal.
+    If a mismatch is found, a warning is shown and the user can choose to continue or go back.
+    Returns True if the user decides to continue, False if the user chooses to go back.
+    """
+    # Dictionary to count clickTypes 3 (entry) and 4 (exit) for each fishLabel
+    counts = defaultdict(lambda:{3: 0, 4: 0})
+    for annotation in annotations:
+        click = annotation.get("clickType")
+        if click in [3,4]:
+            fishLabel=annotation.get("fishLabel")
+            counts[fishLabel][click] += 1
+
+    # Collect any mismatches
+    mismatches = []
+    for fishLabel, count in counts.items():
+        if count[3] != count[4]:
+            mismatches.append(
+                f"FishLabel '{fishLabel}': clickType 3 = {count[3]}, clickType 4 = {count[4]}"
+            )
+    # If there are mismatches, prompt the user
+    if mismatches:
+        message = (
+            "Mismatched entry or exit points detected for the following fish labels:\n\n"
+            + "\n".join(mismatches)
+            + "\n\nDo you want to continue anyways?"
+        )
+        # Ask yes/no returns True for Yes (continue) and False for No (go back)
+        if not messagebox.askyesno("Annotation Mismatch", message):
+            # User chose to go back
+            return False
+        
+    return True
+
+
 # Save Annotations Function
 def save_annotations():
+    # First, check for any entry/exit mismatches
+    if not check_annotations():
+        print("Check annotations: user chose to go back.")
+        return # User chose to go back, do not proceed with saving
+
+    print("No mismatches; proceeding to save annotations.")
+
     file_name = file_name_var.get().strip() or "annotations"  # Default name if none provided
     general_annotations = [
         a for a in annotations if a["clickType"] in [0, 1, 3, 4]
