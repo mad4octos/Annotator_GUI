@@ -5,10 +5,7 @@ from tkinter import *
 from tkinter import ttk, filedialog
 from tkinter import messagebox
 import customtkinter as ctk
-<<<<<<< HEAD
 from collections import defaultdict
-=======
->>>>>>> ba579057b9a129f1aa1f187b04a86323a89558f4
 from PIL import Image, ImageTk
 import csv
 import os
@@ -260,7 +257,6 @@ def import_annotations():
         # Handle any errors (e.g., file not found, invalid format, etc.)
         messagebox.showerror("Error", f"An error occurred while importing annotations: {str(e)}")
 
-<<<<<<< HEAD
 def check_annotations():
     """
     Checks that for every fishLabel in annotations, the number of entries and exits are equal.
@@ -306,10 +302,6 @@ def save_annotations():
 
     print("No mismatches; proceeding to save annotations.")
 
-=======
-# Save Annotations Function
-def save_annotations():
->>>>>>> ba579057b9a129f1aa1f187b04a86323a89558f4
     file_name = file_name_var.get().strip() or "annotations"  # Default name if none provided
     general_annotations = [
         a for a in annotations if a["clickType"] in [0, 1, 3, 4]
