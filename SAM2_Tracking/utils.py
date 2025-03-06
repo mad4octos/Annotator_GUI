@@ -143,8 +143,7 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
     # TODO: check types of inputs 
 
     # Modify the incoming df so it has obj_name as its index
-    # TODO: should we do this inplace? 
-    df = df.set_index(obj_name).  # TODO: may want to remove this. 
+    df = df.set_index(obj_name)
 
     # For each obj_name get frame where the object enters the scene 
     enter_frame = df[df[click_type_name] == 3][frame_name]
@@ -165,8 +164,10 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
     obj_frame_chunks.columns = ['EnterFrame', 'ExitFrame']
 
     # Drop df rows that have click_type_name values of 3 or 4
-    # TODO: should we do this inplace? 
     df = df[~df[click_type_name].isin([3, 4])]
+
+    # Reset index of obj_frame_chunks (improves downstream processing)
+    obj_frame_chunks = obj_frame_chunks.reset_index()
 
     return obj_frame_chunks, df
 

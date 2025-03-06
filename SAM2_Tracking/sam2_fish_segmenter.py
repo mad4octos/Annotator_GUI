@@ -5,6 +5,7 @@ import os
 import sys 
 import torch 
 import numpy as np 
+import pandas as pd 
 import pickle 
 from sam2.build_sam import build_sam2_video_predictor
 
@@ -150,7 +151,7 @@ class SAM2FishSegmenter:
         """
 
         if not isinstance(annotations, pd.DataFrame):
-            raise TypeError("annotations should be a Pandas DataFrame!")
+            raise TypeError("annotations should be a Pandas DataFrame or Series!")
 
         for index, row in annotations.iterrows():
 
@@ -171,18 +172,22 @@ class SAM2FishSegmenter:
                 labels=labels,
             )
 
-    def get_masks(self, start_frame_idx=None, max_frame_num_to_track=None):
+    def get_masks(self, frame_masks=None, start_frame_idx=None, max_frame_num_to_track=None):
         """
         Propagates the prompts to get the masklet across the video using the 
         class predictor and inference state. If configuration variable 
         `save_jpgs` is True, overwrites the JPGs in `jpg_save_dir` with 
         segmentation masks drawn on them. If configuration variable `save_masks` 
-        is True, creates a dictionary of sparse Tensors representing the masks 
-        and saves these to a pkl file specified by configuration variable 
-        `masks_dict_file`. 
+        is True, modifies the the frame key of `frame_masks` by adding a 
+        dictionary key corresponding to the `obj_id` with value as a 
+        sparse tensor representing the mask. 
 
         Parameters
         ----------
+        frame_masks : dict of dict 
+            A dict where keys correspond to the frame number and values 
+            are a dict with keys corresponding to object ids and values 
+            are sparse tensors representing masks
         start_frame_idx : None or int
             The start frame for SAM2 `propagate_in_video`
         max_frame_num_to_track : None or int 
@@ -191,8 +196,8 @@ class SAM2FishSegmenter:
         Returns
         -------
         dict or None 
-            If configuration `save_masks` is `True`, returns `frame_masks` 
-            filled with each object's mask for each frame, else returns `None`
+            If configuration `save_masks` is `True`, returns modified 
+            `frame_masks` with appropriate masks added, else returns `None`
 
         Examples
         --------
@@ -202,11 +207,6 @@ class SAM2FishSegmenter:
         if self.configs["save_jpgs"]:
             # Generate a list of RGB colors for segmentation masks 
             colors = plot_utils.get_spaced_colors(100)
-
-        if self.configs["save_masks"]:
-            # Initialize dictionary of masks for each frame
-            frame_masks = {key: {} for key in range(len(self.frame_paths))}
-
 
         # Perform prediction of masklets across video frames 
         # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
@@ -257,21 +257,32 @@ class SAM2FishSegmenter:
                                                frame_col_name=self.configs["frame_idx_name"])
 
         # Get object frame chunks and modified annotations (that have labels_name rows with 3/4 values dropped)
-        obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations)
+        obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations, obj_name=self.configs["obj_id_name"], 
+                                                                  frame_name=self.configs["frame_idx_name"], 
+                                                                  click_type_name=self.configs["labels_name"])
 
-        frame_masks = {}
-        for obj_label in obj_frame_chunks.index:   # TODO: need to modify for multiple index values and change .loc to .iloc
+        # Initialize dictionary of masks for each frame
+        frame_masks = {key: {} for key in range(len(self.frame_paths))}
+
+        for index, row in obj_frame_chunks.iterrows():
 
             # Get the enter, exit, and number of frames for obj label 
-            enter_frame = fish_frame_chunks.loc[obj_label]['EnterFrame']
-            exit_frame = fish_frame_chunks.loc[obj_label]['ExitFrame']
+            enter_frame = row['EnterFrame']
+            exit_frame = row['ExitFrame']
             num_frames = exit_frame - enter_frame
 
             # Get all of the annotations for the given object label
-            obj_annotation = annotations.loc[obj_label]
+            obj_annotation = annotations.loc[row[self.configs["obj_id_name"]]]
 
-            # Get all annotations that have Frame values between enter_frame and exit_frame inclusive 
-            annotation_chunk = obj_annotation[(obj_annotation[self.configs["frame_idx_name"]] >= enter_frame) & (obj_annotation[self.configs["frame_idx_name"]] <= exit_frame)]
+            # Get all chunks where annotation Frame values are between enter_frame and exit_frame inclusive 
+            chunk = (obj_annotation[self.configs["frame_idx_name"]] >= enter_frame) & (obj_annotation[self.configs["frame_idx_name"]] <= exit_frame)
+
+            # Get annotation chunk 
+            if isinstance(obj_annotation, pd.Series):
+                # Convert Series to a DataFrame with correct columns
+                annotation_chunk = obj_annotation.to_frame().T
+            else:
+                annotation_chunk = obj_annotation[chunk]
 
             # Reset inference state for the new incoming annotations 
             self.predictor.reset_state(self.inference_state)    # TODO: might want to skip for the first entry? 
@@ -280,7 +291,7 @@ class SAM2FishSegmenter:
             self.add_annotations(annotations=annotation_chunk)
 
             # Run propagation on annotation chunk of frames
-            frame_masks += self.get_masks(start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+            frame_masks = self.get_masks(frame_masks=frame_masks, start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
 
         if self.configs["save_masks"]: 
             # Save frame_masks as pkl file 
