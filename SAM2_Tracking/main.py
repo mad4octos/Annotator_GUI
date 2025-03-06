@@ -3,8 +3,7 @@ import torch
 import utils  
 
 # Specify the path to the configuration YAML file
-# yaml_file_path = "./template_configs.yaml"
-yaml_file_path = "/projects/brre2566/annotator_gui_configs/GX137102_entex_configs.yaml"
+yaml_file_path = "./template_configs.yaml"
 
 # Set device for PyTorch 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

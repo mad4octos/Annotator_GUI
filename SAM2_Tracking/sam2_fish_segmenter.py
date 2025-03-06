@@ -285,7 +285,7 @@ class SAM2FishSegmenter:
                 annotation_chunk = obj_annotation[chunk]
 
             # Reset inference state for the new incoming annotations 
-            self.predictor.reset_state(self.inference_state)    # TODO: might want to skip for the first entry? 
+            self.predictor.reset_state(self.inference_state)   
 
             # Add point annotations for provided annotation chunk 
             self.add_annotations(annotations=annotation_chunk)
