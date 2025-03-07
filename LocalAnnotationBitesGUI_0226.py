@@ -5,6 +5,7 @@ from tkinter import *
 from tkinter import ttk, filedialog
 from tkinter import messagebox
 import customtkinter as ctk
+from collections import defaultdict
 from PIL import Image, ImageTk
 import csv
 import os
@@ -14,8 +15,8 @@ import pandas as pd
 current_frame_index = [0]
 xLocation = [0]
 yLocation = [0]
-clickType = [1]  # Default to positive click (1)
-fishLabel = [0]
+ClickType = [1]  # Default to positive click (1)
+ObjID = [0]
 paused = [False]
 annotations = []
 video_speed = 1.0  # Playback speed multiplier
@@ -24,7 +25,7 @@ vid_height, vid_width = 0, 0
 fps = 30  # Default FPS, will update dynamically based on video
 special_frame_start = 0  # Default starting frame for SAM2
 special_frame_interval = 10  # Default, will calculate dynamically
-fish_family = ["Parrotfish"]  # Default fish family
+ObjType = ["Parrotfish"]  # Default fish family
 
 #Define video player size. Should be x = y * 1.5
 video_size_x=600
@@ -80,12 +81,12 @@ def canvas_click_events(event):
 
 # Add Annotation Function
 def add_annotation():
-    fishLabel[0] = fish_name.get()
+    ObjID[0] = fish_name.get()
     annotation = {
         "Frame": current_frame_index[0],
-        "clickType": clickType[0],
-        "fishLabel": fishLabel[0],
-        "Fish_Fam": fish_family[0],
+        "ClickType": ClickType[0],
+        "ObjID": ObjID[0],
+        "ObjType": ObjType[0],
         "Location": np.array([round(xLocation[0], 3), round(yLocation[0], 3)])
     }
     annotations.append(annotation)
@@ -95,16 +96,16 @@ def add_annotation():
 
 #Add Entry Hotkey
 def add_entry(event=None):
-    """Adds a new annotation with clickType=3 and (0,0) location."""
-    global annotations, fish_family, fishLabel, current_frame_index, root
+    """Adds a new annotation with ClickType=3 and (0,0) location."""
+    global annotations, ObjType, ObjID, current_frame_index, root
     if root.focus_get() and isinstance(root.focus_get(), (ctk.CTkEntry, Entry)):
         return
-    fishLabel[0] = fish_name.get()
+    ObjID[0] = fish_name.get()
     annotation = {
         "Frame": current_frame_index[0],
-        "clickType": 3,
-        "fishLabel": fishLabel[0],
-        "Fish_Fam": fish_family[0],
+        "ClickType": 3,
+        "ObjID": ObjID[0],
+        "ObjType": ObjType[0],
         "Location": np.array([0.0, 0.0])
     }
     annotations.append(annotation)
@@ -113,16 +114,16 @@ def add_entry(event=None):
 
 #Add Exit Hotkey
 def add_exit(event=None):
-    """Adds a new annotation with clickType=4 and (0,0) location."""
-    global annotations, fish_family, fishLabel, current_frame_index, root
+    """Adds a new annotation with ClickType=4 and (0,0) location."""
+    global annotations, ObjType, ObjID, current_frame_index, root
     if root.focus_get() and isinstance(root.focus_get(), (ctk.CTkEntry, Entry)):
         return
-    fishLabel[0] = fish_name.get()
+    ObjID[0] = fish_name.get()
     annotation = {
         "Frame": current_frame_index[0],
-        "clickType": 4,
-        "fishLabel": fishLabel[0],
-        "Fish_Fam": fish_family[0],
+        "ClickType": 4,
+        "ObjID": ObjID[0],
+        "ObjType": ObjType[0],
         "Location": np.array([0.0, 0.0])
     }
     annotations.append(annotation)
@@ -141,9 +142,9 @@ def update_annotation_table():
             values=(
                 i,
                 annotation["Frame"],
-                annotation["clickType"],
-                annotation["fishLabel"],
-                annotation["Fish_Fam"],
+                annotation["ClickType"],
+                annotation["ObjID"],
+                annotation["ObjType"],
                 annotation["Location"][:2],
             ),
         )
@@ -167,30 +168,30 @@ def delete_all():
 
 # Toggle Click Type
 def toggle_click_type():
-    if clickType[0] == 1:
-        clickType[0] = 0
+    if ClickType[0] == 1:
+        ClickType[0] = 0
         button_toggle_click.configure(text="Negative Click")
-    elif clickType[0] == 0:
-        clickType[0] = 2
+    elif ClickType[0] == 0:
+        ClickType[0] = 2
         button_toggle_click.configure(text="Bite")
     else:
-        clickType[0] = 1
+        ClickType[0] = 1
         button_toggle_click.configure(text="Positive Click")
 
 # Toggle Fish Family
-def toggle_fish_family():
-    if fish_family[0] == "Parrotfish":
-        fish_family[0] = "Surgeonfish"
-        button_toggle_fish_family.configure(text="Surgeonfish")
-    elif fish_family[0] == "Surgeonfish":
-        fish_family[0] = "Damselfish"
-        button_toggle_fish_family.configure(text="Damselfish")
-    elif fish_family[0] == "Damselfish":
-        fish_family[0] = "Other"
-        button_toggle_fish_family.configure(text="Other")
+def toggle_obj_type():
+    if ObjType[0] == "Parrotfish":
+        ObjType[0] = "Surgeonfish"
+        button_toggle_obj_type.configure(text="Surgeonfish")
+    elif ObjType[0] == "Surgeonfish":
+        ObjType[0] = "Damselfish"
+        button_toggle_obj_type.configure(text="Damselfish")
+    elif ObjType[0] == "Damselfish":
+        ObjType[0] = "Other"
+        button_toggle_obj_type.configure(text="Other")
     else:
-        fish_family[0] = "Parrotfish"
-        button_toggle_fish_family.configure(text="Parrotfish")
+        ObjType[0] = "Parrotfish"
+        button_toggle_obj_type.configure(text="Parrotfish")
 
 
 # Import Previous Annotations Function
@@ -218,7 +219,7 @@ def import_annotations():
         
         #Append annotations to existing list
             for annotation in imported_annotations:
-                if isinstance(annotation, dict) and all(key in annotation for key in ["Frame", "clickType", "fishLabel", "Fish_Fam", "Location"]):
+                if isinstance(annotation, dict) and all(key in annotation for key in ["Frame", "ClickType", "ObjID", "ObjType", "Location"]):
                     annotations.append(annotation)
                 else:
                     raise ValueError("One or more annotations in the file have an invalid format.")
@@ -228,7 +229,7 @@ def import_annotations():
             imported_annotations = pd.read_csv(file_path)
 
             #check if the necessary columns are in the .csv
-            required_columns = ["Frame", "clickType", "fishLabel", "Fish_Fam", "Location"]
+            required_columns = ["Frame", "ClickType", "ObjID", "ObjType", "Location"]
             if not all(col in imported_annotations.columns for col in required_columns):
                 raise ValueError(f"The CSV file must contain the following columns: {', '.join(required_columns)}.")
             for _, row in imported_annotations.iterrows():
@@ -236,9 +237,9 @@ def import_annotations():
                 location = eval(location_str) if isinstance(location_str, str) else location_str
                 annotation = {
                     "Frame": int(row["Frame"]),
-                    "clickType": row["clickType"],
-                    "fishLabel": row["fishLabel"],
-                    "Fish_Fam": row["Fish_Fam"],
+                    "ClickType": row["ClickType"],
+                    "ObjID": row["ObjID"],
+                    "ObjType": row["ObjType"],
                     "Location": np.array(location)
                 }
                 annotations.append(annotation)
@@ -256,14 +257,57 @@ def import_annotations():
         # Handle any errors (e.g., file not found, invalid format, etc.)
         messagebox.showerror("Error", f"An error occurred while importing annotations: {str(e)}")
 
+def check_annotations():
+    """
+    Checks that for every ObjID in annotations, the number of entries and exits are equal.
+    If a mismatch is found, a warning is shown and the user can choose to continue or go back.
+    Returns True if the user decides to continue, False if the user chooses to go back.
+    """
+    # Dictionary to count ClickTypes 3 (entry) and 4 (exit) for each ObjID
+    counts = defaultdict(lambda:{3: 0, 4: 0})
+    for annotation in annotations:
+        click = annotation.get("ClickType")
+        if click in [3,4]:
+            ObjID=annotation.get("ObjID")
+            counts[ObjID][click] += 1
+
+    # Collect any mismatches
+    mismatches = []
+    for ObjID, count in counts.items():
+        if count[3] != count[4]:
+            mismatches.append(
+                f"ObjID '{ObjID}': Entries (ClickType 3) = {count[3]}, Exits (ClickType 4) = {count[4]}"
+            )
+    # If there are mismatches, prompt the user
+    if mismatches:
+        message = (
+            "Mismatched entry or exit points detected for the following fish labels:\n\n"
+            + "\n".join(mismatches)
+            + "\n\nDo you want to continue anyways?"
+        )
+        # Ask yes/no returns True for Yes (continue) and False for No (go back)
+        if not messagebox.askyesno("Annotation Mismatch", message):
+            # User chose to go back
+            return False
+        
+    return True
+
+
 # Save Annotations Function
 def save_annotations():
+    # First, check for any entry/exit mismatches
+    if not check_annotations():
+        print("Check annotations: user chose to go back.")
+        return # User chose to go back, do not proceed with saving
+
+    print("No mismatches; proceeding to save annotations.")
+
     file_name = file_name_var.get().strip() or "annotations"  # Default name if none provided
     general_annotations = [
-        a for a in annotations if a["clickType"] in [0, 1, 3, 4]
+        a for a in annotations if a["ClickType"] in [0, 1, 3, 4]
     ]
     bite_annotations = [
-        a for a in annotations if a["clickType"] == 2
+        a for a in annotations if a["ClickType"] == 2
     ]
     
     if save_locations_var.get():
@@ -271,15 +315,15 @@ def save_annotations():
     
     if save_bites_var.get():
         with open(f"{file_name}_bites.csv", "w", newline="") as csvfile:
-            fieldnames = ["Frame", "clickType", "fishLabel", "Fish_Fam", "Location"]
+            fieldnames = ["Frame", "ClickType", "ObjID", "ObjType", "Location"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for annotation in bite_annotations:
                 writer.writerow({
                     "Frame": annotation["Frame"],
-                    "clickType": annotation["clickType"],
-                    "fishLabel": annotation["fishLabel"],
-                    "Fish_Fam": annotation["Fish_Fam"],
+                    "ClickType": annotation["ClickType"],
+                    "ObjID": annotation["ObjID"],
+                    "ObjType": annotation["ObjType"],
                     "Location": annotation["Location"].tolist()
                 })
     
@@ -334,7 +378,6 @@ def update_time_display():
         label_special_frame.configure(font=("Arial", 12), fg="black")
 
 # Advance Frame
-
 def advance_frame(delta):
     global playing_task
     if playing_task is not None:
@@ -421,12 +464,12 @@ button_set_special_frame.pack(pady=10)
 button_toggle_click = ctk.CTkButton(frame_controls, text="Positive Click", command=toggle_click_type, height = 20)
 button_toggle_click.pack(pady=5)
 
-button_toggle_fish_family = ctk.CTkButton(
+button_toggle_obj_type = ctk.CTkButton(
     frame_controls,
     text="Parrotfish",
-    command=toggle_fish_family, height = 20
+    command=toggle_obj_type, height = 20
 )
-button_toggle_fish_family.pack(pady=5)
+button_toggle_obj_type.pack(pady=5)
 
 Label(frame_controls, text="Fish Name:").pack(pady=5)
 fish_name = StringVar()
@@ -531,7 +574,7 @@ label_time_display.pack(pady=5)
 frame_annotations = ctk.CTkFrame(root)
 frame_annotations.pack(side=RIGHT, fill=Y, padx=10, pady=10)
 
-columns = ("ID", "Frame", "Click Type", "Fish Label", "Fish_Fam", "Coordinates")
+columns = ("ID", "Frame", "Click Type", "Fish Label", "ObjType", "Coordinates")
 treeview = ttk.Treeview(frame_annotations, columns=columns, show="headings")
 for col in columns:
     treeview.heading(col, text=col)
