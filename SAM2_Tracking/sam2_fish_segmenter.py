@@ -290,8 +290,8 @@ class SAM2FishSegmenter:
             # Add point annotations for provided annotation chunk 
             self.add_annotations(annotations=annotation_chunk)
 
-            # Run propagation on annotation chunk of frames
-            frame_masks = self.get_masks(frame_masks=frame_masks, start_frame_idx=enter_frame, max_frame_num_to_track=exit_frame)
+            # Run propagation on chunk of annotated frames
+            frame_masks = self.get_masks(frame_masks=frame_masks, start_frame_idx=enter_frame, max_frame_num_to_track=num_frames)
 
         if self.configs["save_masks"]: 
             # Save frame_masks as pkl file 
