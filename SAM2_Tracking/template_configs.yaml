@@ -4,9 +4,9 @@ sam2_install_dir: "/path/to/sam2/sam2/"
 # Directory containing JPGs corresponding to the frames of the video
 frame_dir: "/path/to/frames"
 
-################################################
-# initialize_predictor specific configurations #
-################################################
+######################################################
+# build_sam2_video_predictor specific configurations #
+######################################################
 
 sam2_checkpoint: "/path/to/sam2/checkpoints/sam2.1_hiera_large.pt"
 model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
@@ -15,10 +15,15 @@ model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
 non_overlap_masks: False
 
 ########################################
-# predict_mask specific configurations #
+# annotation specific configurations   #
 ########################################
 
+# The FPS of the unreduced video that the annotations were 
+# initially meant for
 fps: 24
+
+# Value the ensures the annotated frame value matches up 
+# with the fames that will be ingested by SAM2
 SAM2_start: 0
 
 # File specifying annotations for video frames 
@@ -35,6 +40,10 @@ points_name: 'Location'
 
 # Key in the annotation corresponding to SAM2 labels
 labels_name: 'clickType'
+
+#################################################
+# set_inference_state specific configurations   #
+#################################################
 
 # Whether to offload the video frames to CPU memory.
 # Turning on this option saves the GPU memory with only a very small overhead
