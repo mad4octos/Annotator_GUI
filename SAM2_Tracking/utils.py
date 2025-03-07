@@ -11,6 +11,7 @@ from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pandas as pd 
 
 def read_config_yaml(config_path):
     """
@@ -33,30 +34,143 @@ def read_config_yaml(config_path):
 
     return config
 
-def filter_annotations(annotations_file, fps, SAM2_start):
+def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None, 
+                       df_columns=None, frame_col_name=None):
+    """
+    Reads in a dictionary of annotations and converts it to a Pandas 
+    DataFrame. Additionally, adjusts provided annotations so the 
+    frame value aligns with SAM2. Adjustment is dictated by the 
+    formula: `(frame_number - SAM2_start - 1) / (fps / 3)`, which 
+    is then rounded and turned into an integer. 
 
-    ####### READ NPY FILE CONTAINING GUI ANNOTATIONS###########
+    Parameters
+    ----------
+    annotations_file : str
+        The full path to the annotation file
+    fps : int
+        The FPS of the unreduced video that the annotations were
+        initially meant for
+    SAM2_start : int
+        Value the ensures the annotated frame value matches up 
+        with the fames that will be ingested by SAM2
+    df_columns : list of str
+        Keys to extract from dictionary that will become the 
+        DataFrame columns
+    frame_col_name : str 
+        The name in `df_columns` that corresponds to the 
+        annotation frame column
+
+    Returns
+    -------
+    Pandas.DataFrame
+        DataFrame with columns `df_columns` with column 
+        `frame_col_name` adjusted
+
+    Examples
+    --------
+    >>> annotations_file = "./my_annotations.npy"
+    >>> fps = 24
+    >>> SAM2_start = 0
+    >>> df_columns = ['Frame', 'ClickType', 'FishLabel', 'Location']
+    >>> frame_col_name = 'Frame'
+    >>> adjust_annotations(annotations_file, fps, SAM2_start, 
+                           df_columns, frame_col_name)
+    """
+
+    # TODO: in formula 3 is hardcoded, we might want to change that
+
+    # TODO: check that all inputs are correctly provided 
+
+    # Read in npy file corresponding to dict of annotations
     annotations = np.load(annotations_file, allow_pickle=True)
 
-    # Filter out "Fish_Fam" key and modify "Frame" values
-    annotations_filtered = []
-    for ann in annotations:
-        filtered_ann = {}
-        for key, value in ann.items():
-            if key != "Fish_Fam":
-                if key == "Frame":
-                    frame_value = (value - SAM2_start - 1) / (fps / 3)
-                    #Check if frame_valu    e is a decimal
-                    if not frame_value.is_integer():
-                        rounded_frame_value = round(frame_value)
-                        print(f"Warning: Frame value {frame_value:.2f} was rounded to {rounded_frame_value}")
-                        frame_value = rounded_frame_value
-                    filtered_ann[key] = int(frame_value)
-                else:
-                    filtered_ann[key] = value
-        annotations_filtered.append(filtered_ann)
+    # Convert dict to DataFrame 
+    df = pd.DataFrame(list(annotations))
 
-    return annotations_filtered    
+    # Drop all columns, except those in df_columns 
+    df = df[df_columns]
+
+    # Correct annotation frame value, so it coincides with video frame value
+    df[frame_col_name] = (df[frame_col_name] - SAM2_start - 1) / (fps / 3)
+
+    # Round and convert frame value to an integer 
+    # TODO: do we need to provide a warning that a rounding was necessary? 
+    df[frame_col_name] = round(df[frame_col_name]).astype(int)
+
+    return df  
+
+def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name=None):
+    """
+    Using `click_type_name` column values of 3 and 4, obtains the enter and 
+    exit frame values for each `obj_name`. Additionally, returns `df`
+    with index `obj_name` and drops `click_type_name` rows with 
+    values of 3 and 4. 
+
+    Parameters
+    ----------
+    df : Pandas.DataFrame 
+        The DataFrame representing the adjusted annotations 
+        that will be chunked 
+    obj_name : str
+        A string representing the column of `df` that will 
+        become the index of returned DataFrames and corresponds 
+        to the object ID
+    frame_name : str 
+        The name that corresponds to the column that contains 
+        frame values
+    click_type_name : str
+        The name of the column in `df` that corresponds to 
+        the click type
+
+    Returns
+    -------
+    obj_frame_chunks : Pandas.DataFrame
+        DataFrame with index `obj_name` and columns 
+        `EnterFrame` and `ExitFrame` representing the 
+        frame the object enters and exits the scene, respectively 
+    df : Pandas.DataFrame
+        Input `df` with index `obj_name` and dropped `click_type_name` 
+        rows with values of 3 and 4.
+
+    Examples
+    --------
+    >>> obj_name = 'FishLabel'
+    >>> frame_name = 'Frame'
+    >>> click_type_name = 'ClickType'
+    >>> get_frame_chunks_df(df, obj_name, frame_name, click_type_name)
+    """
+
+    # TODO: check types of inputs 
+
+    # For each obj_name get frame where the object enters the scene 
+    enter_frame = df[df[click_type_name] == 3][[obj_name, frame_name]].astype(int) 
+    enter_frame = enter_frame.sort_values(by=[obj_name, frame_name], ascending=True)
+    
+    # For each obj_name get frame where the object exits the scene 
+    exit_frame = df[df[click_type_name] == 4][[obj_name, frame_name]].astype(int) 
+    exit_frame = exit_frame.sort_values(by=[obj_name, frame_name], ascending=True)
+
+    # Check that each enter point has a corresponding exit point
+    if (enter_frame.shape != exit_frame.shape) or (not np.array_equal(enter_frame[obj_name].values, exit_frame[obj_name].values)):
+        raise RuntimeError(f"A {obj_name} does not have both an enter and exit point!")
+
+    # Drop obj_name from exit_frame, now that we have sorted and compared them
+    exit_frame.drop(columns=obj_name, axis=1, inplace=True)
+
+    # Turn obj_name column back to a string 
+    enter_frame[obj_name] = enter_frame[obj_name].astype(str) 
+
+    # Concatenate columns to improve ease of use later
+    obj_frame_chunks = pd.concat([enter_frame.reset_index(drop=True), exit_frame.reset_index(drop=True)], axis=1)
+    obj_frame_chunks.columns = [obj_name, 'EnterFrame', 'ExitFrame']
+
+    # Drop df rows that have click_type_name values of 3 or 4
+    df = df[~df[click_type_name].isin([3, 4])]
+
+    # Modify df so it has obj_name as its index
+    df = df.set_index(obj_name)
+
+    return obj_frame_chunks, df
 
 def get_jpg_paths(jpg_dir):
     """
@@ -82,10 +196,10 @@ def get_jpg_paths(jpg_dir):
 
     return sorted(jpg_paths)
 
-def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
+def draw_and_save_frame_seg(bool_masks, jpg_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
                             font_size=75, font_color="red", alpha=0.6):
     """
-    Draws segmentation masks on top of the frame and saves 
+    Draws segmentation masks on top of the frames and saves 
     the generated image to `img_save_dir`. 
 
     Parameters
@@ -93,8 +207,8 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
     bool_masks : Tensor of bools
         A tensor of shape (number of masks, frame pixel height, frame pixel width)
         representing the generated segmentation masks
-    img_save_dir : str
-        The path where we want to save the generated image
+    jpg_save_dir : str
+        The path containing frames that will be overwritten with the masks
     frame_paths : list of str
         A list of JPG paths representing the frames 
     out_frame_idx : int
@@ -116,13 +230,16 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
         List of sorted JPG paths
     """    
 
+    # Get frame name using the stem of the frame JPG
+    frame_id = Path(frame_paths[out_frame_idx]).stem
+
     # Draw each mask on top of image representing the frame
-    image_w_seg = decode_image(frame_paths[out_frame_idx])
+    image_w_seg = decode_image(jpg_save_dir + f"/{frame_id}.jpg")
     for i in range(bool_masks.shape[0]):
 
         # Only draw masks that contain True values 
         if bool_masks[i].any():
-            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[i], alpha=alpha)
+            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[out_obj_ids[i]], alpha=alpha)
 
     # Convert image with drawn segmentation masks to PIL Image
     to_pil = transforms.ToPILImage()
@@ -140,11 +257,8 @@ def draw_and_save_frame_seg(bool_masks, img_save_dir, frame_paths, out_frame_idx
         if centroid:
             draw.text(centroid, str(label), fill=font_color, font=font)
 
-    # Get frame name using the stem of the frame JPG
-    frame_id = Path(frame_paths[out_frame_idx]).stem
-
     # Save the final image
-    img_pil.save(img_save_dir + f"/{frame_id}.jpg")
+    img_pil.save(jpg_save_dir + f"/{frame_id}.jpg")
 
 def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size):
     """

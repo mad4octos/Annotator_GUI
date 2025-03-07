@@ -8,14 +8,8 @@ yaml_file_path = "./template_configs.yaml"
 # Set device for PyTorch 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# Initialize class using configurations 
 segmenter = SAM2FishSegmenter(configs=yaml_file_path, device=device)
 
-segmenter.set_inference_state()
-
-# TODO: should we create a config file specifically for these? 
-annotations_filtered  = utils.filter_annotations(annotations_file=segmenter.configs["annotations_file"], 
-                                                 fps=segmenter.configs["fps"], SAM2_start=segmenter.configs["SAM2_start"])
-
-segmenter.add_annotations(annotations=annotations_filtered)
-
+# Run mask propagation workflow 
 segmenter.run_propagation()
