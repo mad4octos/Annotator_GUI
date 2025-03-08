@@ -18,7 +18,8 @@ To install all necessary dependencies for the segmentation workflow
 mamba env create -f environment.yaml
 ```
 > [!NOTE]  
-> The provided `environment.yaml` was constructed for NVIDIA GPUs.
+> The provided `environment.yaml` was constructed for NVIDIA GPUs compatible with 
+> CUDA 12.6. The dependencies may need to be altered for other GPUs. 
 
 Now that all core dependencies have been installed, we can proceed to 
 the SAM2 installation: 

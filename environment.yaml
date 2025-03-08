@@ -4,9 +4,9 @@ channels:
   - nvidia
 dependencies:
   - python=3.12.7
-  - nvidia::cuda-toolkit
-  - conda-forge::pytorch=2.6.0
-  - conda-forge::torchvision=0.21.0
+  - nvidia::cuda-toolkit=12.6.3
+  - conda-forge::pytorch=2.5.1
+  - conda-forge::torchvision=0.20.1
   - conda-forge::pandas=2.2.3
   - pip
   - pip:
