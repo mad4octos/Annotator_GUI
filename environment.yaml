@@ -1,0 +1,14 @@
+name: sam2-env
+channels:
+  - conda-forge
+  - nvidia
+dependencies:
+  - python=3.12.7
+  - nvidia::cuda-toolkit
+  - conda-forge::pytorch=2.6.0
+  - conda-forge::torchvision=0.21.0
+  - conda-forge::pandas=2.2.3
+  - pip
+  - pip:
+    - matplotlib==3.10.1
+    - opencv-python==4.11.0.86
