@@ -368,7 +368,9 @@ def update_frame_from_slider(event):
 def update_time_display():
     frame_num = current_frame_index[0]
     time_in_seconds = frame_num / fps
-    time_display_var.set(f"Time: {time_in_seconds:.2f}s | Frame: {frame_num} | Speed: {video_speed:.1f}x")
+    minutes = int(time_in_seconds // 60)
+    seconds = int(time_in_seconds % 60)
+    time_display_var.set(f"Time: {minutes:02}:{seconds:02} | Frame: {frame_num} | Speed: {video_speed:.1f}x")
 
     if frame_num >= special_frame_start and (frame_num - special_frame_start) % special_frame_interval == 0:
         special_frame_var.set("SAM2 Frame: Annotate Fish Position")
