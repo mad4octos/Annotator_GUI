@@ -91,11 +91,23 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     df = df[df_columns]
 
     # Correct annotation frame value, so it coincides with video frame value
-    df[frame_col_name] = (df[frame_col_name] - SAM2_start - 1) / (fps / 3)
+    df[frame_col_name] = (df[frame_col_name] - SAM2_start) / (fps / 3)
+
+    # Store original frame values
+    original_values = df[frame_col_name].copy()
 
     # Round and convert frame value to an integer 
-    # TODO: do we need to provide a warning that a rounding was necessary? 
     df[frame_col_name] = round(df[frame_col_name]).astype(int)
+
+    # Identify which values were rounded
+    rounded_indices = original_values != df[frame_col_name]
+
+    # Print warning for affected frames
+    if rounded_indices.any():
+        rounded_values = original_values[rounded_indices]
+        new_values = df.loc[rounded_indices, frame_col_name]
+        for original, new in zip(rounded_values, new_values):
+            print(f"Warning: Frame value {original} was rounded to {new}.")
 
     return df  
 
@@ -260,9 +272,9 @@ def draw_and_save_frame_seg(bool_masks, jpg_save_dir, frame_paths, out_frame_idx
     # Save the final image
     img_pil.save(jpg_save_dir + f"/{frame_id}.jpg")
 
-def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size):
+def write_output_video(masked_imgs_dir, fps, SAM2_start, video_file, video_fps, video_frame_size):
     """
-    Compiles the JPGs in `masked_imgs_dir` into an MP4. 
+    Compiles the JPGs in `masked_imgs_dir` into an MP4.  
 
     Parameters
     ----------
@@ -277,6 +289,7 @@ def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size)
         Specifies the frame size for the video, with the first 
         element representing the width and the second corresponding
         to the height
+    TODO: add parameter descriptions for SAM2_start and fps.
     """
 
     masked_img_paths = get_jpg_paths(masked_imgs_dir)
@@ -320,7 +333,7 @@ def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size)
         ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
         # Set title with frame number
-        ax.set_title(f"Frame {frame_idx + 1}/{len(masked_img_paths)}", fontsize=16)
+        ax.set_title(f"Frame {frame_idx + 1}/{frame_idx * (fps/video_fps) + SAM2_start}", fontsize=16)
 
         # Set tick marks based on the original image dimensions
         ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks

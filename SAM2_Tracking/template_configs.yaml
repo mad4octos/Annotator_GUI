@@ -93,7 +93,7 @@ alpha: 0.6
 # The name of the video file to be created
 video_file: "./test_video.mp4"
 
-# The frames per second for the video 
+# The frames per second for the video. Should also be the frame rate of extraction. 
 video_fps: 3
 
 # Specifies the frame size for the video, with the first element 

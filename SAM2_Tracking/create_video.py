@@ -6,5 +6,5 @@ yaml_file_path = "./template_configs.yaml"
 # Read and load the configuration YAML
 configs = read_config_yaml(yaml_file_path)
 
-write_output_video(masked_imgs_dir=configs["jpg_save_dir"], video_file=configs["video_file"], 
-                   video_fps=configs["video_fps"], video_frame_size=configs["video_frame_size"])
+write_output_video(masked_imgs_dir=configs["jpg_save_dir"], video_file=configs["video_file"], fps = configs["fps"],
+                   SAM2_start=configs["SAM2_start"], video_fps=configs["video_fps"], video_frame_size=configs["video_frame_size"])
