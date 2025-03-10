@@ -1,6 +1,5 @@
 from sam2_fish_segmenter import SAM2FishSegmenter
-import torch
-import utils  
+import torch 
 
 # Specify the path to the configuration YAML file
 yaml_file_path = "./template_configs.yaml"

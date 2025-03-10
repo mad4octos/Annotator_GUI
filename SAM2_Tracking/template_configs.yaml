@@ -79,7 +79,7 @@ font_color: "red"
 # Alpha value for the drawn segmentation masks
 alpha: 0.6
 
-# The frames per second for the video 
+# The frames per second for the video. Should also be the frame rate of extraction. 
 video_fps: 3
 
 # Specifies the frame size for the video, with the first element 

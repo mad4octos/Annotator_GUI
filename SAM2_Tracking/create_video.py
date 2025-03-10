@@ -12,5 +12,6 @@ configs = read_config_yaml(yaml_file_path)
 
 write_output_video(frame_dir=configs["frame_dir"], frame_masks_file=configs["masks_dict_file"], 
                    video_file=configs["video_file"], video_fps=configs["video_fps"], 
-                   video_frame_size=configs["video_frame_size"], font_size=configs["font_size"], 
+                   video_frame_size=configs["video_frame_size"], fps=configs["fps"],
+                   SAM2_start=configs["SAM2_start"], font_size=configs["font_size"], 
                    font_color=configs["font_color"], alpha=configs["alpha"], device=device)

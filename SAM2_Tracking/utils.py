@@ -93,11 +93,23 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     df = df[df_columns]
 
     # Correct annotation frame value, so it coincides with video frame value
-    df[frame_col_name] = (df[frame_col_name] - SAM2_start - 1) / (fps / 3)
+    df[frame_col_name] = (df[frame_col_name] - SAM2_start) / (fps / 3)
+
+    # Store original frame values
+    original_values = df[frame_col_name].copy()
 
     # Round and convert frame value to an integer 
-    # TODO: do we need to provide a warning that a rounding was necessary? 
     df[frame_col_name] = round(df[frame_col_name]).astype(int)
+
+    # Identify which values were rounded
+    rounded_indices = original_values != df[frame_col_name]
+
+    # Print warning for affected frames
+    if rounded_indices.any():
+        rounded_values = original_values[rounded_indices]
+        new_values = df.loc[rounded_indices, frame_col_name]
+        for original, new in zip(rounded_values, new_values):
+            print(f"Warning: Frame value {original} was rounded to {new}.")
 
     return df  
 
@@ -256,7 +268,7 @@ def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
     return image, centroids
 
 def write_output_video(frame_dir, frame_masks_file, video_file, video_fps, 
-                       video_frame_size, font_size=16, font_color="red", alpha=0.6, device="cuda"):
+                       video_frame_size, fps, SAM2_start, font_size=16, font_color="red", alpha=0.6, device="cuda"):
     """
     Constructs an MP4 of all frames in `frame_dir` and draws masks 
     on said frames using the masks found in `frame_masks_file`. 
@@ -274,6 +286,12 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
         Specifies the frame size for the video, with the first 
         element representing the width and the second corresponding
         to the height
+    fps : int 
+        The FPS of the unreduced video that the annotations were 
+        initially created for
+    SAM2_start : int 
+        Value that ensures the annotated frame value matches up with 
+        the fames that will be ingested by SAM2
     font_size : int
         Font size for drawn object IDs
     font_color : str
@@ -353,7 +371,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
                     ax.text(centroid[0]*scale_x, centroid[1]*scale_y, obj_id, fontsize=font_size, color=font_color)
 
         # Set title with frame number
-        ax.set_title(f"SAM2 frame: {frame_idx}", fontsize=16)
+        ax.set_title(f"SAM2 frame: {frame_idx}, Annotation frame: {frame_idx * (fps/video_fps) + SAM2_start}", fontsize=16)
 
         # Set tick marks based on the original image dimensions
         ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks
