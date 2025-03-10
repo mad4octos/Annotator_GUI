@@ -13,8 +13,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd 
 import pickle
-import time 
-import warnings
 
 def read_config_yaml(config_path):
     """
@@ -116,7 +114,7 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
         rounded_values = original_values[rounded_indices]
         new_values = df.loc[rounded_indices, frame_col_name]
         for original, new in zip(rounded_values, new_values):
-            warnings.warn(f"Warning: Frame value {original} was rounded to {new}.", RuntimeWarning)
+            print(f"Frame value {original} was rounded to {new}.")
 
     return df  
 
