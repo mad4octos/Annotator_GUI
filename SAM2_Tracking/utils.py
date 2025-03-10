@@ -114,7 +114,7 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
         rounded_values = original_values[rounded_indices]
         new_values = df.loc[rounded_indices, frame_col_name]
         for original, new in zip(rounded_values, new_values):
-            print(f"Frame value {original} was rounded to {new}.")
+            print(f"Warning: Frame value {original} was rounded to {new}.")
 
     return df  
 
