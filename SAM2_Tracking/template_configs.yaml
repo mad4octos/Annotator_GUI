@@ -19,10 +19,10 @@ non_overlap_masks: False
 ########################################
 
 # The FPS of the unreduced video that the annotations were 
-# initially meant for
+# initially created for
 fps: 24
 
-# Value the ensures the annotated frame value matches up 
+# Value that ensures the annotated frame value matches up 
 # with the fames that will be ingested by SAM2
 SAM2_start: 0
 
@@ -60,31 +60,8 @@ async_loading_frames: False
 # run_propagation specific configurations #
 ###########################################
 
-# If True, draw segmentation masks on top of frames and save the generated JPGs to jpg_save_dir
-# Note that jpg_save_dir must have all frames in it, if copy_frame_dir is False
-save_jpgs: True
-
-# If True, will copy the directory specified by frame_dir to jpg_save_dir at runtime 
-copy_frame_dir: True
-
-# The full path to the directory we want to save frames with segmentation masks drawn on them
-jpg_save_dir: './generated_jpgs'
-
-# If True, save the generated masks in a dictionary with sparse tensor values and save it as 
-# a pkl file defined by masks_dict_file
-save_masks: True
-
-# The location you want to save the dictionary of masks 
+# The location you want to save the dictionary of masks to
 masks_dict_file: './generated_frame_masks.pkl'
-
-# Font size for drawn object IDs
-font_size: 100
-
-# Color of font for the drawn object IDs
-font_color: "red"
-
-# Alpha value for the drawn segmentation masks
-alpha: 0.6
 
 ###################################
 # Video creation specific configs #
@@ -93,9 +70,18 @@ alpha: 0.6
 # The name of the video file to be created
 video_file: "./test_video.mp4"
 
+# Font size for drawn object IDs
+font_size: 16
+
+# Color of font for the drawn object IDs
+font_color: "red"
+
+# Alpha value for the drawn segmentation masks
+alpha: 0.6
+
 # The frames per second for the video 
 video_fps: 3
 
 # Specifies the frame size for the video, with the first element 
 # representing the width and the second corresponding to the height
-video_frame_size: [600, 400]
+video_frame_size: [900, 600]

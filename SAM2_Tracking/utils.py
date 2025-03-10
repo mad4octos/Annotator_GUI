@@ -12,6 +12,8 @@ import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd 
+import pickle
+import time 
 
 def read_config_yaml(config_path):
     """
@@ -132,6 +134,11 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
         Input `df` with index `obj_name` and dropped `click_type_name` 
         rows with values of 3 and 4.
 
+    Raises
+    ------
+    RuntimeError
+        If each enter point does not have a corresponding exit point
+
     Examples
     --------
     >>> obj_name = 'FishLabel'
@@ -196,94 +203,110 @@ def get_jpg_paths(jpg_dir):
 
     return sorted(jpg_paths)
 
-def draw_and_save_frame_seg(bool_masks, jpg_save_dir, frame_paths, out_frame_idx, out_obj_ids, colors, 
-                            font_size=75, font_color="red", alpha=0.6):
+def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
     """
-    Draws segmentation masks on top of the frames and saves 
-    the generated image to `img_save_dir`. 
+    For each mask provided in `mask_dict`, draws masks on top of the 
+    image provided by `frame_path`. 
 
     Parameters
     ----------
-    bool_masks : Tensor of bools
-        A tensor of shape (number of masks, frame pixel height, frame pixel width)
-        representing the generated segmentation masks
-    jpg_save_dir : str
-        The path containing frames that will be overwritten with the masks
-    frame_paths : list of str
-        A list of JPG paths representing the frames 
-    out_frame_idx : int
-        Index representing the frame we predicted the masks for 
-    out_obj_ids : list of int
-        A list of integers representing the ids for each mask
+    mask_dict : dict of sparse tensors
+        Dictionary with keys corresponding to object IDs and 
+        values representing the mask created for the object ID. 
+    frame_path : str 
+        The video frame corresponding to the provided `mask_dict`. 
     colors : list of tuples of ints
         A list of tuples representing RGB colors for each segmentation mask
-    font_size : int
-        Font size for drawn object IDs
-    font_color : str
-        Color of font for the drawn object IDs
     alpha : float 
         Alpha value for the segmentation masks 
 
     Returns
     -------
-    list
-        List of sorted JPG paths
+    image : Image tensor 
+        Image tensor representing the frame with the 
+        masks drawn on it
+    centroids : dict of tuple
+        Dictionary with keys corresponding to the object 
+        ID and values a tuple representing the x, y 
+        centroids of the object  
     """    
 
-    # Get frame name using the stem of the frame JPG
-    frame_id = Path(frame_paths[out_frame_idx]).stem
+    # Read in frame and convert it to a tensor 
+    image = decode_image(frame_path)
+    image = image.to(device)
+    
+    # Dictionary that will hold calculated centroids 
+    centroids = {}
 
-    # Draw each mask on top of image representing the frame
-    image_w_seg = decode_image(jpg_save_dir + f"/{frame_id}.jpg")
-    for i in range(bool_masks.shape[0]):
+    # Draw each mask on top of the image representing the frame
+    if mask_dict:
+        for obj_id, mask in mask_dict.items():
 
-        # Only draw masks that contain True values 
-        if bool_masks[i].any():
-            image_w_seg = draw_segmentation_masks(image_w_seg, bool_masks[i], colors=colors[out_obj_ids[i]], alpha=alpha)
+            # Convert sparse tensor to dense and drop first channel dimension 
+            mask = mask.to_dense()
+            mask = mask.to(device)
+            mask = mask.squeeze(0)
 
-    # Convert image with drawn segmentation masks to PIL Image
-    to_pil = transforms.ToPILImage()
-    img_pil = to_pil(image_w_seg)
+            # Get centroid for object ID
+            centroids[obj_id] = plot_utils.get_centroid(mask)
 
-    # Draw text annotations
-    draw = ImageDraw.Draw(img_pil)
-    font = ImageFont.load_default(size=font_size)
+            # Draw masks on image 
+            image = draw_segmentation_masks(image, mask, colors=colors[obj_id], alpha=alpha)
 
-    # Compute centroids for all masks so we can place the object ID on the centroid 
-    centroids = [plot_utils.get_centroid(mask) for mask in bool_masks]
+    return image, centroids
 
-    # Draw the object ID at the centroid
-    for centroid, label in zip(centroids, out_obj_ids):
-        if centroid:
-            draw.text(centroid, str(label), fill=font_color, font=font)
-
-    # Save the final image
-    img_pil.save(jpg_save_dir + f"/{frame_id}.jpg")
-
-def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size):
+def write_output_video(frame_dir, frame_masks_file, video_file, video_fps, 
+                       video_frame_size, font_size=16, font_color="red", alpha=0.6, device="cuda"):
     """
-    Compiles the JPGs in `masked_imgs_dir` into an MP4. 
+    Constructs an MP4 of all frames in `frame_dir` and draws masks 
+    on said frames using the masks found in `frame_masks_file`. 
 
     Parameters
     ----------
-    masked_imgs_dir : str 
-        The full path to the directory containing the JPGs we 
-        will use to create the video 
-    video_file : str
-        The name of the video file to be created 
+    frame_dir : str 
+        Directory containing JPGs corresponding to the frames of the video
+    frame_masks_file : str
+        A pickle file composed of sparse tensors representing the generated 
+        masks for each video frame
     video_fps : int
         The frames per second for the video 
     video_frame_size : list or tuple of ints
         Specifies the frame size for the video, with the first 
         element representing the width and the second corresponding
         to the height
+    font_size : int
+        Font size for drawn object IDs
+    font_color : str
+        Color of font for the drawn object IDs
+    alpha : float 
+        Alpha value for the segmentation masks 
+    device : torch.device 
+        A `torch.device` class specifying the device to use for mask drawing 
+
+    Raises
+    ------
+    RuntimeError
+        If no images are found in `frame_dir`
+
+    Examples
+    --------
+    >>> write_output_video(frame_dir="/path/to/jpgs", frame_masks_file="masks.pkl", 
+                           video_file="./test_video.mp4", video_fps=3, 
+                           video_frame_size=[900, 600])
     """
 
-    masked_img_paths = get_jpg_paths(masked_imgs_dir)
+    # Open and load the pickle file holding the masks 
+    with open(frame_masks_file, 'rb') as file:
+        frame_masks = pickle.load(file)
 
-    if not masked_img_paths:
-        print(f"No images found in the path: {masked_imgs_dir}.")
-        return
+    # Generate a list of RGB colors for segmentation masks 
+    colors = plot_utils.get_spaced_colors(100)
+
+    # Paths to the video frames
+    frame_paths = get_jpg_paths(frame_dir)
+
+    if not frame_paths:
+        raise RuntimeError(f"No images found in the path: {frame_dir}.")
 
     # Set the width and height of the video 
     width = video_frame_size[0]
@@ -291,36 +314,46 @@ def write_output_video(masked_imgs_dir, video_file, video_fps, video_frame_size)
     
     # Define the video codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video = cv2.VideoWriter(video_file, fourcc, video_fps, video_frame_size)
+    video = cv2.VideoWriter(video_file, fourcc, video_fps, (width, height))
 
-    # Define font properties
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = max(0.5, width / 1000)  # Adjust based on image size
-    font_thickness = 2
-    text_color = (255, 255, 255)  # White text
+    # Write each image to the video and draw masks on images that contain them
+    for frame_idx, img_path in tqdm(enumerate(frame_paths), total=len(frame_paths)):
 
-    # Write each image to the video with modifications
-    for frame_idx, img_path in tqdm(enumerate(masked_img_paths), total=len(masked_img_paths)):
-
-        img = cv2.imread(img_path)
-        if img is None:
-            print(f"Warning: Could not read {img_path}, skipping.")
-            continue
+        # Draw masks on the frame, if they exist
+        image, centroids = draw_masks(mask_dict=frame_masks[frame_idx], frame_path=img_path, 
+                                      colors=colors, alpha=alpha, device=device)
 
         # Get original image dimensions (before resizing)
-        orig_height, orig_width = img.shape[:2]
-        
-        # Resize the image
-        img = cv2.resize(img, video_frame_size)
+        orig_height, orig_width = image.shape[1:]
+
+        # Define the transformation to resize the image
+        resize_transform = transforms.Resize((height, width))  # Resize to width x height
+
+        # Apply the resize transformation to the image tensor
+        image = resize_transform(image)
+
+        # Rearrange image tensor from (C, H, W) to (H, W, C)
+        image = image.permute(1, 2, 0).cpu().numpy()
 
         # Create a matplotlib figure
-        fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+        fig, ax = plt.subplots(figsize=(width / 100, height / 100))
 
         # Display the image
-        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        ax.imshow(image)
+
+        # Scaling factors for centroids 
+        scale_x = width / orig_width  # Scaling factor for width
+        scale_y = height / orig_height  # Scaling factor for height
+
+        # Draw object ID on object, if a centroid exists for it 
+        if centroids:
+            for obj_id, centroid in centroids.items():
+                # Skip empty masks that occur
+                if centroid is not None:
+                    ax.text(centroid[0]*scale_x, centroid[1]*scale_y, obj_id, fontsize=font_size, color=font_color)
 
         # Set title with frame number
-        ax.set_title(f"Frame {frame_idx + 1}/{len(masked_img_paths)}", fontsize=16)
+        ax.set_title(f"SAM2 frame: {frame_idx}", fontsize=16)
 
         # Set tick marks based on the original image dimensions
         ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks
