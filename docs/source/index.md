@@ -23,4 +23,11 @@ user_guide/annotation
 user_guide/mask_creation
 ```
 
+```{toctree}
+:maxdepth: 1
+:caption: Reference
+
+reference/sam2_fish_segmenter_api
+```
+
 
