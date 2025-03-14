@@ -11,7 +11,7 @@ Annotator GUI is meant to ...
 :caption: Getting Started
 
 getting_started/installation
-getting_started/examples
+getting_started/minimal_example
 getting_started/faq
 ```
 
