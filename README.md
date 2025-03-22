@@ -2,7 +2,8 @@
 
 These scripts can be used to rapidly mark the positions of multiple objects from a video in an interactive Graphical User Interface (GUI), then run the Segment Anything Model 2 (SAM2) for automated tracking. Our SAM2 workflow is adapted from the [Meta Github repository](https://github.com/facebookresearch/sam2), and modified to drastically improve memory efficiency and iterate over multiple tracked individuals, thus avoiding the loss of performance that results from SAM2 tracking multiple objects simultaneously.
 
-Note: For the purposes of 3D recreation, left and right paired videos should be synced before beginning to collect annotations. Our code to sync videos is not yet publically available within this GitHub repository, but will be soon. Contact M. Hair if desired. 
+> [!NOTE]
+> For the purposes of 3D recreation, left and right paired videos should be synced before beginning to collect annotations. Our code to sync videos is not yet publicly available within this GitHub repository, but will be soon. Contact M. Hair if desired. 
 
 CU students and members of the Gil Lab, please refer to `SAM2_Tracking_GUI-UserManual.pdf` for specific instructions using CU's HPC: Alpine
 
