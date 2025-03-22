@@ -173,6 +173,6 @@ mamba activate sam2-env
 python3 main.py
 ```
 
-When the code is done running, it should produce a `test_video.mp4` displaying all the predicted masks; this video can be viewed to validate SAM2 predictions. The actual masks are saved as a sparse tensor within `generated_frame_masks.pkl`.
+If default values are used, when the code is done running, it should produce a `test_video.mp4` displaying all the predicted masks; this video can be viewed to validate SAM2 predictions. The actual masks are saved as a dictionary of sparse tensors within `generated_frame_masks.pkl`.
 
 Please raise an issue or contact M.Hair if you experience issues using this code. 
