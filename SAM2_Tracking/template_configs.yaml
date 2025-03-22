@@ -29,7 +29,7 @@ SAM2_start: 0
 # File specifying annotations for video frames 
 annotations_file: "/path/to/test_annotations.npy" 
 
-# Key in the annotation corresponding to SAM2 
+# Key in the annotation corresponding to SAM2 frame_idx
 frame_idx_name: 'Frame'
 
 # Key in the annotation corresponding to SAM2 obj_id
