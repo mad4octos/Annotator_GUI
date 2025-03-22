@@ -163,7 +163,7 @@ points_name: 'Location'
 labels_name: 'ClickType'
 ```
 
-If a different extracted frame rate has been used (i.e., other than 3fps), change the video_fps value on line 83. 
+If a different extracted frame rate has been used (i.e., other than 3 FPS), change the `video_fps` value on line 83. 
 
 Other values in the `template_configs.yaml` can be left as the default, or can be changed as desired. 
 
