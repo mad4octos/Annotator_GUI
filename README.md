@@ -26,7 +26,7 @@ To launch the GUI, you should first activate the GUI environment with the necess
 mamba activate annotate_env
 python3 LocalAnnotationBitesGUI_0226.py
 ```
-This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. Depending on the file size, the video may take a few minutes to load during which python will show `Application not responding` - this is normal, do not exit the GUI. 
+This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. Depending on the file size, the video may take a few minutes to load during which Python will show `Application not responding` - this is normal, do not exit the GUI. 
 
 Once the video loads, you can use the player control buttons to pause and play the video, adjust the playback rate, and move frame-by frame. There is a scroll bar beneath the video player that can be used to move to a different time. The arrow keys can also be used to quickly advance or move backward frames. 
 The current time, current frame, and playback speed are shown at the top of the right panel. 
