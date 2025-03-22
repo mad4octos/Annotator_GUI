@@ -1,7 +1,6 @@
 name: annotate_env
 channels:
   - conda-forge
-  - nvidia
 dependencies:
   - python=3.12.7
   - conda-forge::pandas=2.2.3
