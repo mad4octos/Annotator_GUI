@@ -146,7 +146,7 @@ The main SAM2 workflow must be run on a machine with GPU access.
 
 A folder should be set up containing the `annotations.npy` file, the `frames` subfolder, and the necessary scripts for the SAM2 workflow: `main.py`, `sam2_fish_segmenter.py`, `template_configs.yaml`, `utils.py`, and `plot_utils.py`. 
 
-The `template_configs.yaml` file should be edited to specify the paths to the sam2 installation and provided checkpoints, the fps of the original video that was annotated in the GUI, the SAM2_start frame that was used in both the GUI and the Extract Frames step, and the name of the annotations.npy file. 
+The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
 
 Lines 32 - 42 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
 ```
