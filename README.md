@@ -118,7 +118,7 @@ To install all necessary dependencies for the segmentation workflow
 (not including SAM2), create a Mamba environment using the provided 
 `environment.yaml`: 
 ```
-mamba env create -f environment.yaml
+mamba env create -f SAM2_environment.yaml
 ```
 > [!NOTE]  
 > The provided `environment.yaml` was constructed for NVIDIA GPUs compatible with 
