@@ -23,7 +23,7 @@ mamba env create -f GUI_environment.yaml
 ## Using the Annotator GUI
 To launch the GUI, you should first activate the GUI environment with the necessary dependencies: 
 ```
-mamba activate annotate_env
+mamba activate annotate-env
 python3 LocalAnnotationBitesGUI_0226.py
 ```
 This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. Depending on the file size, the video may take a few minutes to load during which Python will show `Application not responding` - this is normal, do not exit the GUI. 
@@ -63,29 +63,29 @@ When the SAM2 start frame, click type, fish family, and fish name are set to the
 > Only frames that will be extracted for SAM2 processing should be annotated with positive / negative clicks or entries/exits. These frames will display a message "SAM2 Frame: Annotate Fish Position". 
 > Bite clicks can be annotated on any frame. 
 
-Annotations can be deleted using the Delete Selected or Delete All buttons. The Delete All button will prompt for confirmation before deleting all annotations.
+Annotations can be deleted using the "Delete Selected" or "Delete All" buttons. The "Delete All" button will prompt for confirmation before deleting all annotations.
 
 ### Entries and Exits
 
-On the first SAM2 frame where the individual is visible, an Entry should be marked using the Add Entry button or the keystroke 'e'. On the last SAM2 frame where the individual is visible, an Exit should be marked using the Add Exit button or the keystroke 'x'. No location is associated with entries and exits, but the correct fish family and individual name should be specified before marking entries and exits. 
+On the first SAM2 frame where the individual is visible, an entry should be marked using the "Add Entry" button or the keystroke "e". On the last SAM2 frame where the individual is visible, an exit should be marked using the "Add Exit" button or the keystroke "x". No location is associated with entries and exits, but the correct fish family and individual name should be specified before marking entries and exits. 
 Multiple entries and exits can be associated for each object; these will essentially tell SAM2 when to start and stop tracking the object. If the object leaves the field of view temporarily, it is best to mark it as an exit and re-entry; otherwise, SAM2 will keep looking for that object and may incorrectly mask a different but similar-looking object.
 
 If your cursor is in one of the input text boxes, pressing "e" or "x" will simply type in the text box and not create a new entry or exit. Click on the annotation table to remove your cursor from the input text box and use the hotkey shortcuts.
 
 ### Saving Annotations
 
-To save your annotations, write the file name you wish to save as in the provided input textbox. If this file name has already been used, it will overwrite any existing files. 
-By default, saving your annotations will create two files that will be saved in the working directory where you launched the GUI from. One of these will be `filename_bites.csv`, and this will contain your bites annotations. Another file named `filename_annotations.npy` will contain your positive and negative positional annotations, entries, and exits.  The `filename_annotations.npy` file is what you will submit to SAM2 to track your individuals.
-Use the checkboxes at the top of the GUI to specify which files you'd like to save before clicking the Save Annotations button.
+To save your annotations, write the file name you wish to save it as in the provided input textbox. If this file name has already been used, it will overwrite any existing files. 
 
-To edit previous annotations or continue previous progress, use the Import Previous Annotations button to re-load your bites and locations annotations into the GUI.
+By default, saving your annotations will create two files that will be saved in the working directory where you launched the GUI from. One of these will be `filename_bites.csv`, and this will contain your bites annotations. Another file named `filename_annotations.npy` will contain your positive and negative positional annotations, entries, and exits.  The `filename_annotations.npy` file is what you will submit to SAM2 to track your individuals.
+Use the checkboxes at the top of the GUI to specify which files you'd like to save before clicking the "Save Annotations" button.
+
+To edit previous annotations or continue previous progress, use the "Import Previous Annotations" button to re-load your bites and locations annotations into the GUI.
 
 When all individuals to be tracked in a video have been marked with an entry, an exit, at least one positive click, you can save your annotations, exit the GUI, and proceed to SAM2 frame extraction for processing.
 
 ## Extract Frames for SAM2
 
-The frames from a video will need to be extracted and stored within a folder before SAM2 processing:
-
+The frames from a video will need to be extracted and stored within a folder before SAM2 processing. This can be done from the command line using FFmpeg:
 ```
 # Set the frame to begin extracting.
 # This must match the SAM2 Start Frame used in the GUI
@@ -95,7 +95,7 @@ SAM2_start_frame=0
 video_fps=24
 
 # Specify the path to the video that will be processed
-video_name= "path/to/GX137102.MP4"
+video_name="path/to/GX137102.MP4"
 
 # Set the frame rate to be extracted. Determines the temporal resolution of the data. Must match the frequency used in the GUI (default of 3fps)
 fps=3
@@ -117,12 +117,12 @@ instructions for installing these dependencies using a
 
 To install all necessary dependencies for the segmentation workflow 
 (not including SAM2), create a Mamba environment using the provided 
-`environment.yaml`: 
+`SAM2_environment.yaml`: 
 ```
 mamba env create -f SAM2_environment.yaml
 ```
 > [!NOTE]  
-> The provided `environment.yaml` was constructed for NVIDIA GPUs compatible with 
+> The provided `SAM2_environment.yaml` was constructed for NVIDIA GPUs compatible with 
 > CUDA 12.6. The dependencies may need to be altered for other GPUs. 
 
 Now that all core dependencies have been installed, we can proceed to 
@@ -141,10 +141,10 @@ SAM2 only needs to be installed once.
 ## Running SAM2
 
 
-When object positional and entry/exit annotations have been collected and saved in a filename_annotations.npy file, and the video frames have been extracted and stored in a frames folder, the main SAM2 workflow can be followed to process the folder of frames and predict masks for every individual annotated. 
+When object positional and entry/exit annotations have been collected and saved in an annotations file e.g. `annotations.npy`, and the video frames have been extracted and stored in a frames folder, the main SAM2 workflow can be followed to process the folder of frames and predict masks for every individual annotated.
 The main SAM2 workflow must be run on a machine with GPU access.
 
-A folder should be set up containing the `annotations.npy` file, the `frames` subfolder, and the necessary scripts for the SAM2 workflow: `main.py`, `sam2_fish_segmenter.py`, `template_configs.yaml`, `utils.py`, and `plot_utils.py`. 
+A folder should be set up containing the `annotations.npy` file, the `frames` subfolder, and the necessary scripts for the SAM2 workflow: `main.py`, `sam2_fish_segmenter.py`, `template_configs.yaml`, `utils.py`, and `plot_utils.py`. All these files can be obtained from the repo's `SAM2_Tracking` directory. In the future, we will make this a Python package, so that transferring files is not necessary. 
 
 The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
 
