@@ -57,7 +57,7 @@ This option specifies which individual you are marking annotations for. This sho
 
 ### Adding Annotations
 
-When the SAM2 Start frame, click type, fish family, and fish name are set to the correct values, use your cursor to click on the video where you wish to mark a click. Then press Enter or the Add Annotation button to record the annotation in the annotation table in the right panel. The Annotation Table will display the Frame that was annotated, the Click Type used (0 is a negative click, 1 is a positive click, 2 is a bite click), the fish name, family and the x y coordinates of the click location.
+When the SAM2 start frame, click type, fish family, and fish name are set to the correct values, use your cursor to click on the video where you wish to mark a click. Then press enter or the "Add Annotation" button to record the annotation in the annotation table in the right panel. The "Annotation Table" will display the frame that was annotated, the "Click Type" used (0 is a negative click, 1 is a positive click, 2 is a bite click), the fish name, family and the x,y coordinates of the click location.
 
 > [!Note] 
 > Only frames that will be extracted for SAM2 processing should be annotated with positive / negative clicks or entries/exits. These frames will display a message "SAM2 Frame: Annotate Fish Position". 
