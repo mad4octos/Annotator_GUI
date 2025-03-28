@@ -35,14 +35,14 @@ def read_config_yaml(config_path):
 
     return config
 
-def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None, 
+def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):
     """
     Reads in a dictionary of annotations and converts it to a Pandas 
     DataFrame. Additionally, adjusts provided annotations so the 
     frame value aligns with SAM2. Adjustment is dictated by the 
-    formula: `(frame_number - SAM2_start - 1) / (fps / 3)`, which 
-    is then rounded and turned into an integer. 
+    formula: `(frame_number * (fps / out_fps) + SAM2_start, which 
+    is then rounded, if necessary, and turned into an integer. 
 
     Parameters
     ----------
@@ -51,6 +51,9 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     fps : int
         The FPS of the unreduced video that the annotations were
         initially meant for
+    out_fps: int
+        The FPS of the reduced video or extracted frames ingested by SAM2.
+        Also the final temporal resolution of the data. 
     SAM2_start : int
         Value the ensures the annotated frame value matches up 
         with the fames that will be ingested by SAM2
@@ -77,14 +80,13 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     --------
     >>> annotations_file = "./my_annotations.npy"
     >>> fps = 24
+    >>> out_fps = 3
     >>> SAM2_start = 0
     >>> df_columns = ['Frame', 'ClickType', 'FishLabel', 'Location']
     >>> frame_col_name = 'Frame'
-    >>> adjust_annotations(annotations_file, fps, SAM2_start, 
+    >>> adjust_annotations(annotations_file, fps, out_fps, SAM2_start, 
                            df_columns, frame_col_name)
     """
-
-    # TODO: in formula 3 is hardcoded, we might want to change that
 
     # TODO: check that all inputs are correctly provided 
 
@@ -98,7 +100,7 @@ def adjust_annotations(annotations_file=None, fps=None, SAM2_start=None,
     df = df[df_columns]
 
     # Correct annotation frame value, so it coincides with video frame value
-    df[frame_col_name] = (df[frame_col_name] - SAM2_start) / (fps / 3)
+    df[frame_col_name] = (df[frame_col_name] / (fps / out_fps) + SAM2_start)
 
     # Store original frame values
     original_values = df[frame_col_name].copy()
@@ -272,7 +274,7 @@ def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
 
     return image, centroids
 
-def write_output_video(frame_dir, frame_masks_file, video_file, video_fps, 
+def write_output_video(frame_dir, frame_masks_file, video_file, out_fps, 
                        video_frame_size, fps, SAM2_start, font_size=16, font_color="red", alpha=0.6, device="cuda"):
     """
     Constructs an MP4 of all frames in `frame_dir` and draws masks 
@@ -285,7 +287,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
     frame_masks_file : str
         A pickle file composed of sparse tensors representing the generated 
         masks for each video frame
-    video_fps : int
+    out_fps : int
         The frames per second for the video 
     video_frame_size : list or tuple of ints
         Specifies the frame size for the video, with the first 
@@ -314,7 +316,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
     Examples
     --------
     >>> write_output_video(frame_dir="/path/to/jpgs", frame_masks_file="masks.pkl", 
-                           video_file="./test_video.mp4", video_fps=3, 
+                           video_file="./test_video.mp4", out_fps=3, 
                            video_frame_size=[900, 600])
     """
 
@@ -337,7 +339,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
     
     # Define the video codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video = cv2.VideoWriter(video_file, fourcc, video_fps, (width, height))
+    video = cv2.VideoWriter(video_file, fourcc, out_fps, (width, height))
 
     # Write each image to the video and draw masks on images that contain them
     for frame_idx, img_path in tqdm(enumerate(frame_paths), total=len(frame_paths)):
@@ -376,7 +378,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, video_fps,
                     ax.text(centroid[0]*scale_x, centroid[1]*scale_y, obj_id, fontsize=font_size, color=font_color)
 
         # Set title with frame number
-        ax.set_title(f"SAM2 frame: {frame_idx}, Annotation frame: {frame_idx * (fps/video_fps) + SAM2_start}", fontsize=16)
+        ax.set_title(f"SAM2 frame: {frame_idx}, Annotation frame: {frame_idx * (fps/out_fps) + SAM2_start}", fontsize=16)
 
         # Set tick marks based on the original image dimensions
         ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks
