@@ -233,8 +233,8 @@ class SAM2FishSegmenter:
 
         # Convert annotations to a DataFrame and adjust frame values 
         annotations = utils.adjust_annotations(annotations_file=self.configs["annotations_file"], fps=self.configs["fps"], 
-                                               SAM2_start=self.configs["SAM2_start"], df_columns=df_columns, 
-                                               frame_col_name=self.configs["frame_idx_name"])
+                                               out_fps = self.configs["out_fps"], SAM2_start=self.configs["SAM2_start"], 
+                                               df_columns=df_columns, frame_col_name=self.configs["frame_idx_name"])
 
         # Get object frame chunks and modified annotations (that have labels_name rows with 3/4 values dropped)
         obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations, obj_name=self.configs["obj_id_name"], 

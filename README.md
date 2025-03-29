@@ -35,8 +35,8 @@ The current time, current frame, and playback speed are shown at the top of the 
 
 The SAM2 Start Frame is a function for ensuring that the annotated frames correspond with the frames extracted for SAM2. The SAM2 Start Frame specifies which frame to begin counting at, then will display a message "SAM2 Frame: Annotate Fish Position" on the 3 frames per second that will be processed by SAM2.
 > [!Note] 
-> It is assumed (and hard-coded within this GUI function) that frames will be extracted from the raw video at 3 FPS. 
-> If a different temporal resolution is desired, line 58 of `LocalAnnotationBitesGUI_0226.py` can be edited to adjust the `special_frame_interval`. 
+> It is the default assumption that frames will be extracted from the raw video at 3 FPS. 
+> If a different temporal resolution is desired, line 27 of `LocalAnnotationBitesGUI_0226.py` can be edited to adjust the `out_fps`. 
 As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos where left-right video syncing has already been completed or is not necessary. 
 
 ### Click Types
@@ -148,7 +148,7 @@ A folder should be set up containing the `annotations.npy` file, the `frames` su
 
 The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
 
-Lines 32 - 42 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
+Lines 35 - 45 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
 ```
 # Key in the annotation corresponding to SAM2 
 frame_idx_name: 'Frame'
@@ -163,7 +163,7 @@ points_name: 'Location'
 labels_name: 'ClickType'
 ```
 
-If a different extracted frame rate has been used (i.e., other than 3 FPS), change the `video_fps` value on line 83. 
+If a different extracted frame rate has been used (i.e., other than 3 FPS), change the `out_fps` value on line 30. 
 
 Other values in the `template_configs.yaml` can be left as the default, or can be changed as desired. 
 
@@ -173,6 +173,10 @@ mamba activate sam2-env
 python3 main.py
 ```
 
-If default values are used, when the code is done running, it should produce a `test_video.mp4` displaying all the predicted masks; this video can be viewed to validate SAM2 predictions. The actual masks are saved as a dictionary of sparse tensors within `generated_frame_masks.pkl`.
-
+If default values are used, when the code is done running, it should produce a dictionary of sparse tensors within `generated_frame_masks.pkl`. To visualize the generated masks, create a `test_video.mp4` displaying all the predicted masks:
+```
+mamba activate sam2-env
+python3 create_video.py
+```
+This video can be viewed to validate SAM2 predictions.
 Please raise an issue or contact M.Hair if you experience issues using this code. 

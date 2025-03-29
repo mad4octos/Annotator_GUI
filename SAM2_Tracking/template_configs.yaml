@@ -26,6 +26,9 @@ fps: 24
 # with the fames that will be ingested by SAM2
 SAM2_start: 0
 
+# Reduced frame rate. Must match with the extracted frame rate.
+out_fps: 3
+
 # File specifying annotations for video frames 
 annotations_file: "/path/to/test_annotations.npy" 
 
@@ -78,9 +81,6 @@ font_color: "red"
 
 # Alpha value for the drawn segmentation masks
 alpha: 0.6
-
-# The frames per second for the video. Should also be the frame rate of extraction. 
-video_fps: 3
 
 # Specifies the frame size for the video, with the first element 
 # representing the width and the second corresponding to the height
