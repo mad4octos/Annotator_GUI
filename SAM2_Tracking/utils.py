@@ -40,9 +40,17 @@ def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start
     """
     Reads in a dictionary of annotations and converts it to a Pandas 
     DataFrame. Additionally, adjusts provided annotations so the 
-    frame value aligns with SAM2. Adjustment is dictated by the 
-    formula: `(frame_number * (fps / out_fps) + SAM2_start, which 
-    is then rounded, if necessary, and turned into an integer. 
+    frame values from annotations of the unreduced video align 
+    with the reduced frames provided to SAM2. 
+    Adjustment is dictated by the formula: 
+    `(frame_index - SAM2_start) / (fps / out_fps)`
+    This formula takes the frame index provided from the unreduced video 
+    and subtracts the SAM2_start value to align with the specified 
+    frame delay at extraction (which can be used for syncing sequential videos).
+    The resulting value is then divided by the inverval at which frames were extracted,
+    i.e., `fps / out_fps`, to adjust the provided annotation frame values to the extracted 
+    frame values ingested by SAM2. The final frame value is then rounded, if necessary, 
+    and turned into an integer. 
 
     Parameters
     ----------
@@ -100,7 +108,7 @@ def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start
     df = df[df_columns]
 
     # Correct annotation frame value, so it coincides with video frame value
-    df[frame_col_name] = (df[frame_col_name] / (fps / out_fps) + SAM2_start)
+    df[frame_col_name] = (df[frame_col_name] - SAM2_start) / (fps / out_fps)
 
     # Store original frame values
     original_values = df[frame_col_name].copy()
@@ -287,6 +295,9 @@ def write_output_video(frame_dir, frame_masks_file, video_file, out_fps,
     frame_masks_file : str
         A pickle file composed of sparse tensors representing the generated 
         masks for each video frame
+    video_file : str
+        The name of the video file to be created demonstrating the generated 
+        masks on each frame.
     out_fps : int
         The frames per second for the video 
     video_frame_size : list or tuple of ints
