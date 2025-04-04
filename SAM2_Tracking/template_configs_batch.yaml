@@ -1,0 +1,97 @@
+# Specifying SAM2 install directory location 
+sam2_install_dir: "/path/to/sam2/sam2/"
+
+# Directories containing JPGs corresponding to the frames of the video
+frame_dir: 
+    - "/path/to/frames/trial1"
+    - "/path/to/frames/trial2"
+
+######################################################
+# build_sam2_video_predictor specific configurations #
+######################################################
+
+sam2_checkpoint: "/path/to/sam2/checkpoints/sam2.1_hiera_large.pt"
+model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
+
+# Whether to apply non-overlapping constraints on the output object masks
+non_overlap_masks: False
+
+########################################
+# annotation specific configurations   #
+########################################
+
+# The FPS of the unreduced video that the annotations were 
+# initially created with
+fps: 24
+
+# Value that ensures the annotated frame value matches up 
+# with the fames that will be ingested by SAM2
+SAM2_start: 
+    - 0 # Trial 1 SAM2 start
+    - 2 # Trial 2 SAM2 start
+
+# Reduced frame rate. Must match with the extracted frame rate.
+out_fps: 3
+
+# File specifying annotations for video frames 
+annotations_file: 
+    - "/path/to/test_annotations_trial1.npy" 
+    - "/path/to/test_annotations_trial2.npy" 
+    
+# Key in the annotation corresponding to SAM2 frame_idx
+frame_idx_name: 'Frame'
+
+# Key in the annotation corresponding to SAM2 obj_id
+obj_id_name: 'ObjID'
+
+# Key in the annotation corresponding to SAM2 points
+points_name: 'Location'
+
+# Key in the annotation corresponding to SAM2 labels
+labels_name: 'ClickType'
+
+#################################################
+# set_inference_state specific configurations   #
+#################################################
+
+# Whether to offload the video frames to CPU memory.
+# Turning on this option saves the GPU memory with only a very small overhead
+offload_video_to_cpu: True
+
+# Whether to offload the state to CPU memory. 
+# Turning this option on can save GPU memory
+offload_state_to_cpu: True
+
+# Lazy load images, can conserve memory, if it is needed
+async_loading_frames: False
+
+###########################################
+# run_propagation specific configurations #
+###########################################
+
+# The location you want to save the dictionary of masks to
+masks_dict_file: 
+    - './trial_1_generated_frame_masks.pkl'
+    - './trial_2_generated_frame_masks.pkl'
+
+###################################
+# Video creation specific configs #
+###################################
+
+# The name of the video file to be created
+video_file: 
+    - "./trial_1_test_video.mp4"
+    - "./trial_2_test_video.mp4"
+    
+# Font size for drawn object IDs
+font_size: 16
+
+# Color of font for the drawn object IDs
+font_color: "red"
+
+# Alpha value for the drawn segmentation masks
+alpha: 0.6
+
+# Specifies the frame size for the video, with the first element 
+# representing the width and the second corresponding to the height
+video_frame_size: [900, 600]

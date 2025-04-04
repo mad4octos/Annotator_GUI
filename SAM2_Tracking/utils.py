@@ -35,6 +35,89 @@ def read_config_yaml(config_path):
 
     return config
 
+
+def extract_keys(data, prefix=""):
+    """
+    Recursively extracts all key names from a nested dictionary (YAML configuration).
+
+    Parameters
+    ----------
+    data : dict
+        The dictionary (parsed from YAML) from which to extract key names.
+    prefix : str, optional
+        A prefix used for constructing full key paths when handling nested dictionaries.
+        Defaults to an empty string.
+
+    Returns
+    -------
+    list of str
+        A list containing all key names, including nested keys represented in dot notation.
+
+    Examples
+    --------
+    >>> yaml_data = {"sam2_install_dir": "/path/to/sam2", 
+                     "model_cfg": "config.yaml", 
+                     "nested": {"key1": "value1", "key2": "value2"}}
+    >>> extract_keys(yaml_data)
+    ['sam2_install_dir', 'model_cfg', 'nested.key1', 'nested.key2']
+    """
+    keys = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            full_key = f"{prefix}{key}"
+            keys.append(full_key)
+            keys.extend(extract_keys(value, prefix=full_key + ".") if isinstance(value, dict) else [])
+    return keys
+
+
+ def get_trial_value(config, key, index, trial_count):
+    """
+    Return the value for a given key for the trial at index.
+    If the value is a list:
+       - If its length is 1, return the single value.
+       - If its length equals trial_count, return the value at the current index.
+       - Otherwise, raise an error.
+    If the value is not a list, return it directly.
+    
+    Parameters
+    ----------
+    config : dict
+        A dictionary containing all configuration key-value pairs. This dictionary
+        may include keys with values that are either a single value or a list of values.
+    key : str
+        The configuration key whose value is to be retrieved. This key should be present
+        in the config dictionary.
+    index : int
+        The index of the current trial. This is used to select the appropriate value from
+        a list if the configuration value for the key is provided as a list of values.
+    trial_count : int
+        The total number of trials expected. This is used to verify that if the configuration
+        value for the key is a list, its length matches the number of trials (unless it is a single-element list).
+    
+    Returns
+    -------
+    value : any
+        The configuration value for the specified key corresponding to the current trial.
+        If the value in the configuration is a list with one element, that element is returned;
+        if it is a list with a length equal to trial_count, the element at the given index is returned;
+        otherwise, if the value is not a list, it is returned directly.
+
+    Raises
+    ------
+    ValueError
+        If the configuration value is a list whose length is not 1 or equal to trial_count.
+    """
+    val = config.get(key)
+    if isinstance(val, list):
+        if len(val) == 1:
+            return val[0]
+        elif len(val) == trial_count:
+            return val[index]
+        else:
+            raise ValueError(f"Expected 1 or {trial_count} values for '{key}', got {len(val)}")
+    return val
+
+
 def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):
     """
