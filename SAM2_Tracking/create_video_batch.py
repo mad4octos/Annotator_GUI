@@ -2,7 +2,7 @@ from utils import read_config_yaml, write_output_video, extract_keys, get_trial_
 import torch 
 
 # Specify the path to the configuration YAML file
-configs = "./template_configs.yaml"
+configs = "./template_configs_batch.yaml"
 
 # Set device for PyTorch 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
