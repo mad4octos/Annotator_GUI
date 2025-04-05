@@ -7,7 +7,7 @@ def run_batch_processing(config_file, device):
     # Load the YAML configuration file
     configs = utils.read_config_yaml(config_file)
     
-    # Retrieve dictionary of the length of values provided for each configuration key
+    # Retrieve trial count from the length of values provided for each configuration key
     trial_count = utils.extract_config_lens(configs)
     
     # Iterate over each trial and extract configuration values
