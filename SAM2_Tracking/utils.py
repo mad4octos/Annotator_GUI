@@ -70,7 +70,7 @@ def extract_keys(data, prefix=""):
     return keys
 
 
- def get_trial_value(config, key, index, trial_count):
+def get_trial_value(config, key, index, trial_count):
     """
     Return the value for a given key for the trial at index.
     If the value is a list:
