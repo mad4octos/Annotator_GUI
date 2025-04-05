@@ -9,26 +9,17 @@ def run_batch_processing(config_file, device):
     
     # Retrieve dictionary of the length of values provided for each configuration key
     trial_count = utils.extract_config_lens(configs)
-
-    trials = list(zip(frame_dirs, annotation_files, mask_files))
     
-    # Iterate over each trial and run segmentation
-    for frame_dir, annotation_file, mask_file in trials: 
-        trial_config = configs.copy()
-        trial_config["frame_dir"] = frame_dir
-        trial_config["annotations_file"] = annotation_file
-        trial_config["masks_dict_file"] = mask_file
-        
-        # Get trial index
-        i = trials.index((frame_dir, annotation_file, mask_file))
-        
-        # Iterate through configuration keys check for any other values that changed between trials
-        for key in keys:
-            trial_config[key] = utils.get_trial_value(configs, key, i, trial_count)
+    # Iterate over each trial and extract configuration values
+    for i in range(trial_count): 
+        trial_config = {
+            key: value[0] if len(value) == 1 else value[i]
+            for key, value in configs.items()
+        }
         
         # Initialize the segmenter with modified trial configs
         segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
-        print(f"Processing: {frame_dir} with {annotation_file} and saving masks to {mask_file}")
+        print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
         segmenter.run_propagation()
 
 configs= "./batch_template_configs.yaml"
@@ -36,4 +27,5 @@ configs= "./batch_template_configs.yaml"
 # Set device for PyTorch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Process batch of videos
 run_batch_processing(configs, device)

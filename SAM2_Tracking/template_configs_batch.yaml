@@ -17,7 +17,8 @@ model_cfg:
     - "configs/sam2.1/sam2.1_hiera_l.yaml"
 
 # Whether to apply non-overlapping constraints on the output object masks
-non_overlap_masks: False
+non_overlap_masks: 
+    - False
 
 ########################################
 # annotation specific configurations   #
