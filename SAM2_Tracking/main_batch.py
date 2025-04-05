@@ -7,25 +7,9 @@ def run_batch_processing(config_file, device):
     # Load the YAML configuration file
     configs = utils.read_config_yaml(config_file)
     
-    # Retrieve list of configuration keys
-    keys = utils.extract_keys(configs)
-    
-    # Extract lists of frame directories, annotation files, and output files
-    frame_dirs = configs.get("frame_dir", [])
-    annotation_files = configs.get("annotations_file", [])
-    mask_files = configs.get("masks_dict_file", [])
-    video_files = configs.get("video_file", [])
-    
-    # Ensure main lists are of the same length
-    if not (len(frame_dirs) == len(mask_files) == len(annotation_files) == len(video_files)):
-        raise ValueError("Mismatch between number of annotation files, frame directories, mask files, and video files")  
-        # Note: the video files are not used in this script, but will be used later in create_video.py, and 
-        # I think it's better to be aware of this issue before proceeding.  
-        
-    # Calculate number of trials    
-    trial_count = len(frame_dirs)
-    print(f"Number of trials to process: {trial_count}")
-    
+    # Retrieve dictionary of the length of values provided for each configuration key
+    trial_count = utils.extract_config_lens(configs)
+
     trials = list(zip(frame_dirs, annotation_files, mask_files))
     
     # Iterate over each trial and run segmentation

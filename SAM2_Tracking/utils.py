@@ -35,40 +35,64 @@ def read_config_yaml(config_path):
 
     return config
 
-
-def extract_keys(data, prefix=""):
+def extract_config_lens(configs):
     """
-    Recursively extracts all key names from a nested dictionary (YAML configuration).
+    Analyze configuration dictionary to determine the number of trials provided.
+
+    This function inspects the lengths of values for each key in a configuration
+    dictionary and ensures that either:
+    - all values are singular (length 1), or
+    - some values are singular and the rest are all the same non-1 length.
+
+    If inconsistent configuration lengths are found (e.g., more than one non-1 length),
+    an error is raised listing the problematic keys and their respective lengths.
 
     Parameters
     ----------
-    data : dict
-        The dictionary (parsed from YAML) from which to extract key names.
-    prefix : str, optional
-        A prefix used for constructing full key paths when handling nested dictionaries.
-        Defaults to an empty string.
+    configs : dict
+        A dictionary where each key maps to a list of values. Each value represents
+        the configuration for one trial or a single shared value (length 1).
 
     Returns
     -------
-    list of str
-        A list containing all key names, including nested keys represented in dot notation.
+    trial_count : int
+        An integer of the number of configuration values, or trials, provided.
 
-    Examples
-    --------
-    >>> yaml_data = {"sam2_install_dir": "/path/to/sam2", 
-                     "model_cfg": "config.yaml", 
-                     "nested": {"key1": "value1", "key2": "value2"}}
-    >>> extract_keys(yaml_data)
-    ['sam2_install_dir', 'model_cfg', 'nested.key1', 'nested.key2']
+    Raises
+    ------
+    ValueError
+        If configuration values have inconsistent lengths (i.e., not all are 1 or the same other number),
+        this exception is raised with a list of the problematic keys.
     """
-    keys = []
-    if isinstance(data, dict):
-        for key, value in data.items():
-            full_key = f"{prefix}{key}"
-            keys.append(full_key)
-            keys.extend(extract_keys(value, prefix=full_key + ".") if isinstance(value, dict) else [])
-    return keys
-
+    # Get length of provided values for each config key as a dictionary 
+    config_counts = {k: len(v) for k, v in configs.items()}
+    
+    # Extract the unique lengths of configuration values
+    unique_counts = set(config_counts.values())
+    
+    # Confirm that all provided configurations are single or in a list of the same length
+    if unique_counts == {1}:
+        print("There is 1 trial provided for processing")
+        return unique_counts
+    elif len(unique_counts) == 2 and 1 in unique_counts:
+        unique_counts.remove(1)
+        const_len = unique_counts.pop()
+        print(f"There are {const_len} trials provided for processing.")
+        return const_len
+    else:
+        # Find the inconsistent key lists
+        key_counts = {}
+        for key, count in config_counts.items():
+            key_counts.setdefault(count, []).append(key)
+        problem_counts = [c for c in key_counts if c != 1]
+        
+        # Raise a helpful error stating which keys were provided inconsistent lengths
+        err_msg = "Inconsistent configuration lengths found:\n"
+        for count in problem_counts:
+            keys = key_counts[count]
+            error_message += f" - Count {count}: {keys}\n"
+        raise ValueError(err_msg)
+    return config_counts
 
 def get_trial_value(config, key, index, trial_count):
     """
