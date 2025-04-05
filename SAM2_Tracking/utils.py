@@ -75,27 +75,19 @@ def extract_config_lens(configs):
     There are 2 trials provided for processing.
     2
     """
-    # Get length of provided values for each config key as a dictionary 
-    config_counts = {k: len(v) for k, v in configs.items()}
+    # Get length of provided values for each listed config key as a dictionary 
+    config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list)}
     
     # Extract the unique lengths of configuration values
     unique_counts = set(config_counts.values())
     
-    # Confirm that all provided configurations are single or in a list of the same length
-    if unique_counts == {1}:
-        print("There is 1 trial provided for processing")
-        return 1
-    elif len(unique_counts) == 2 and 1 in unique_counts:
-        unique_counts.remove(1)
-        const_len = unique_counts.pop()
-        print(f"There are {const_len} trials provided for processing.")
-        return const_len
-    else:
+ # Confirm that all provided configurations are in a list of the same length
+    if len(unique_counts) > 1:
         # Find the inconsistent key lists
         key_counts = {}
         for key, count in config_counts.items():
             key_counts.setdefault(count, []).append(key)
-        problem_counts = [c for c in key_counts if c != 1]
+        problem_counts = [c for c in key_counts]
         
         # Raise a helpful error stating which keys were provided inconsistent lengths
         err_msg = "Inconsistent configuration lengths found:\n"
@@ -103,7 +95,10 @@ def extract_config_lens(configs):
             keys = key_counts[count]
             err_msg += f" - Count {count}: {keys}\n"
         raise ValueError(err_msg)
-    return config_counts
+    else:
+        trial_count = unique_counts.pop()
+        print(f"There are {trial_count} trials provided for processing")
+        return trial_count
 
 def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):

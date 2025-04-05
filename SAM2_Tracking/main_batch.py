@@ -13,7 +13,7 @@ def run_batch_processing(config_file, device):
     # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
         trial_config = {
-            key: value[0] if len(value) == 1 else value[i]
+            key:(value[i] if isinstance (value, list) else value)
             for key, value in configs.items()
         }
         

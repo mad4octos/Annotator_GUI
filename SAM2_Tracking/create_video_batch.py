@@ -11,7 +11,7 @@ def run_batch_video_processing(configs, device):
      # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
         trial_config = {
-            key: value[0] if len(value) == 1 else value[i]
+            key: value[i] if isinstance (value,list) else value
             for key, value in configs.items()
         }
         
@@ -23,7 +23,7 @@ def run_batch_video_processing(configs, device):
             frame_masks_file = trial_config["masks_dict_file"],
             video_file=trial_config["video_file"],
             out_fps=trial_config["out_fps"],
-            video_frame_size=trial_config["video_frame_size"],
+            video_frame_size=configs["video_frame_size"],
             fps=trial_config["fps"],
             SAM2_start=trial_config["SAM2_start"],
             font_size=trial_config["font_size"],
