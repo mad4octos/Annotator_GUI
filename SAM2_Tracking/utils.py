@@ -90,7 +90,7 @@ def extract_config_lens(configs):
         err_msg = "Inconsistent configuration lengths found:\n"
         for count in problem_counts:
             keys = key_counts[count]
-            error_message += f" - Count {count}: {keys}\n"
+            err_msg += f" - Count {count}: {keys}\n"
         raise ValueError(err_msg)
     return config_counts
 
