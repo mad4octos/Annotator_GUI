@@ -35,6 +35,18 @@ def read_config_yaml(config_path):
 
     return config
 
+def lol_check(variable):
+    """"
+    Reads in a variable and checks if it is a list of lists (lol).
+
+    Returns
+    -------
+    Bool
+        True, if variable is a list of lists. 
+        False if variable is any other format. 
+    """
+    return isinstance (variable, list) and all(isinstance(item, list) for item in variable)
+
 def extract_config_lens(configs):
     """
     Analyze configuration dictionary to determine the number of trials provided.
@@ -76,11 +88,22 @@ def extract_config_lens(configs):
     2
     """
     # Get length of provided values for each listed config key as a dictionary 
-    config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list)}
+    config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list) 
+                     and key != "video_frame_size"}
     
     # Extract the unique lengths of configuration values
     unique_counts = set(config_counts.values())
     
+    # Explicitly check for list of lists in video_frame_size
+    lol = lol_check(configs["video_frame_size"])
+    if lol:
+        size_count = len(configs["video_frame_size"])
+        if size_count not in unique_counts:
+            raiseValueError(f"Inconsistent configuration lengths found in video_frame_size")
+    
+    # Discard instances where user provied a single value in list format
+    unique_counts.discard(1)
+
  # Confirm that all provided configurations are in a list of the same length
     if len(unique_counts) > 1:
         # Find the inconsistent key lists
@@ -99,6 +122,64 @@ def extract_config_lens(configs):
         trial_count = unique_counts.pop()
         print(f"There are {trial_count} trials provided for processing")
         return trial_count
+
+def get_trial_config(configs, i):
+    """
+    Extracts a specific trial configuration from a general configuration dictionary.
+
+    This function supports configurations where values can be:
+    - A single value (int, str, etc.)
+    - A list of values (used for multiple trials)
+    - A list of lists (specifically for the "video_frame_size" key)
+
+    Parameters
+    ----------
+    configs : dict
+        Dictionary containing configuration values. Each key's value can be:
+        - a scalar (same for all trials),
+        - a list (each entry for a separate trial), or
+        - for "video_frame_size" specifically, a list of lists or a single list.
+    i : int
+        Index of the trial to extract configuration for.
+
+    Returns
+    -------
+    trial_config : dict
+        Dictionary containing configuration values for the i-th trial.
+
+    Notes
+    -----
+    This function depends on a helper function `lol_check(value)` that determines
+    whether a value is a list of lists.
+
+    Examples
+    --------
+    >>> configs = {
+    ...     "batch_size": [32, 64],
+    ...     "learning_rate": 0.001,
+    ...     "video_frame_size": [[640, 480], [1280, 720]]
+    ... }
+    >>> get_trial_config(configs, 1)
+    {'batch_size': 64, 'learning_rate': 0.001, 'video_frame_size': [1280, 720]}
+    """
+    
+    trial_config = {}
+    for key, value in configs.items():
+        # Handle "video_frame_size" separately
+        if key == "video_frame_size":
+            # Check for list of lists
+            if not lol_check(value):
+                trial_config[key] = value # Assign the entire value if not a list of lists
+            else: 
+                trial_config[key] = value[i] # Assign the i-th list if not a list of lists
+        elif isinstance(value,list):
+            if len(value) > 1: # Lists with more than one value
+                trial_config[key] = value[i] # Assign the i-th value
+            else: # List with a single value
+                trial_config[key] = value[0] # Assign the first (only) value
+        else: # single non-list value
+            trial_config[key] = value
+    return trial_config
 
 def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):
