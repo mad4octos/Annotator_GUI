@@ -23,10 +23,11 @@ video_speed = 1.0  # Playback speed multiplier
 frames = []
 vid_height, vid_width = 0, 0
 fps = 30  # Default FPS, will update dynamically based on video
+out_fps = 3 # Default temporal resolution for SAM2. 
 special_frame_start = 0  # Default starting frame for SAM2
 special_frame_interval = 10  # Default, will calculate dynamically
 ObjType = ["Parrotfish"]  # Default fish family
-out_fps = 3
+
 
 #Define video player size. Should be x = y * 1.5
 video_size_x=600

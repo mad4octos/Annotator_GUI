@@ -36,7 +36,7 @@ The current time, current frame, and playback speed are shown at the top of the 
 The SAM2 Start Frame is a function for ensuring that the annotated frames correspond with the frames extracted for SAM2. The SAM2 Start Frame specifies which frame to begin counting at, then will display a message "SAM2 Frame: Annotate Fish Position" on the 3 frames per second that will be processed by SAM2.
 > [!Note] 
 > It is the default assumption that frames will be extracted from the raw video at 3 FPS. 
-> If a different temporal resolution is desired, line 58 of `LocalAnnotationBitesGUI_0226.py` can be edited to change `3`to your desired extraction frame rate. 
+> If a different temporal resolution is desired, line 26 of `LocalAnnotationBitesGUI_0226.py` can be edited to change `3`to your desired extraction frame rate. 
 As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos where left-right video syncing has already been completed or is not necessary. 
 
 ### Click Types
@@ -91,8 +91,8 @@ The frames from a video will need to be extracted and stored within a folder bef
 # This must match the SAM2 Start Frame used in the GUI
 SAM2_start_frame=0 
 
-# Specify the original fps of the video.
-video_fps=24
+# Specify the original fps of the video..
+video_fps=23.997
 
 # Specify the path to the video that will be processed
 video_name="path/to/GX137102.MP4"
@@ -179,4 +179,5 @@ mamba activate sam2-env
 python3 create_video.py
 ```
 This video can be viewed to validate SAM2 predictions.
+
 Please raise an issue or contact M.Hair if you experience issues using this code. 
