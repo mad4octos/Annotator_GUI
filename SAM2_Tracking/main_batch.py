@@ -19,7 +19,7 @@ def run_batch_processing(config_file, device):
         print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
         segmenter.run_propagation()
 
-config_file = "./batch_template_configs.yaml"
+config_file = "./template_configs_batch.yaml"
         
 # Set device for PyTorch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

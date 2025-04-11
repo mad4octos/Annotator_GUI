@@ -99,11 +99,12 @@ def extract_config_lens(configs):
     # Extract the unique lengths of configuration values
     unique_counts = set(config_counts.values())
     
-    # Discard instances where user provied a single value in list format
-    unique_counts.discard(1)
+    # Check for mismatches in provided configuration lengths,
+    # accounting for instances where the user provided a single value in list format
+    mismatch = len([x for x in unique_counts if x!= 1]) > 1
 
  # Confirm that all provided configurations are in a list of the same length
-    if len(unique_counts) > 1:
+    if mismatch:
         # Find the inconsistent key lists
         # Raise a helpful error stating the length of each value for keys that have multiple trials
         err_msg = "Inconsistent configuration lengths found:\n"
@@ -113,9 +114,19 @@ def extract_config_lens(configs):
             err_msg += f" - {key} trial count: {count}\n"
         raise ValueError(err_msg)
     else:
-        trial_count = unique_counts.pop()
-        print(f"There are {trial_count} trials provided for processing")
-        return trial_count
+        if len(unique_counts) > 1: # Multiple trials, some contain lists of a single entry
+            unique_counts.discard(1)
+            trial_count = unique_counts.pop()
+            print(f"There are {trial_count} trials provided for processing")
+            return trial_count
+        if not unique_counts: # The set is empty because all values are provided as a single entry
+            trial_count = 1
+            print(f" There is 1 trial provided for processing")
+            return trial_count
+        else: # All list configs are provided in the same length (no single lists)
+            trial_count = unique_counts.pop()
+            print(f"There are {trial_count} trials provided for processing")
+            return trial_count
 
 def get_trial_config(configs, i):
     """
@@ -149,12 +160,12 @@ def get_trial_config(configs, i):
     Examples
     --------
     >>> configs = {
-    ...     "batch_size": [32, 64],
-    ...     "learning_rate": 0.001,
+    ...     "fps": [32, 64],
+    ...     "out_fps": 3,
     ...     "video_frame_size": [[640, 480], [1280, 720]]
     ... }
     >>> get_trial_config(configs, 1)
-    {'batch_size': 64, 'learning_rate': 0.001, 'video_frame_size': [1280, 720]}
+    {'fps': 64, 'out_fps': 3, 'video_frame_size': [1280, 720]}
     """
     
     trial_config = {}
