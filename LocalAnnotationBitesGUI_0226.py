@@ -57,7 +57,7 @@ def load_video():
     frames.clear()
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Update FPS dynamically
-    special_frame_interval = max(1, round(fps)/out_fps)  # Calculate interval for 3 frames per second. Can substitute 3 for your desired frame extraction rate. 
+    special_frame_interval = max(1, round(fps)/out_fps)  # Calculate interval for SAM2 extracted frames.
 
     while cap.isOpened():
         ret, frame = cap.read()
