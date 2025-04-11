@@ -1,21 +1,21 @@
-from utils import *
+import utils
 import torch 
 
 def run_batch_video_processing(configs, device):
     # Load the YAML configuration file
-    configs = read_config_yaml(configs)
+    configs = utils.read_config_yaml(configs)
     
     # Retrieve trial count from the length of values provided for each configuration key
-    trial_count = extract_config_lens(configs)
+    trial_count = utils.extract_config_lens(configs)
 
      # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
-        trial_config = get_trial_config(configs,i)
+        trial_config = utils.get_trial_config(configs,i)
         
         # Write the output with modified trial configs
         print(f"Creating video: {trial_config['video_file']} from {trial_config['frame_dir']} and {trial_config['masks_dict_file']}")
 
-        write_output_video(
+        utils.write_output_video(
             frame_dir = trial_config["frame_dir"],
             frame_masks_file = trial_config["masks_dict_file"],
             video_file=trial_config["video_file"],
