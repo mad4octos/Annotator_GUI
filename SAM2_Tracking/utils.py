@@ -52,33 +52,32 @@ def lol_check(variable):
 
 def extract_config_lens(configs):
     """
-    Analyze configuration dictionary to determine the number of trials provided.
+    Validates and extracts the number of trials from a configuration dictionary.
 
-    This function inspects the lengths of values for each key in a configuration
-    dictionary and ensures that either:
-    - all values are singular (length 1), or
-    - some values are singular and the rest are all the same non-1 length.
+    This function checks that all configuration entries meant to support multiple trials
+    (i.e., those stored as lists) have the same number of entries, excluding entries where
+    only a single value is provided in list format. It raises a ValueError if inconsistent
+    lengths are found among multi-trial configurations.
 
-    If inconsistent configuration lengths are found (e.g., more than one non-1 length),
-    an error is raised listing the problematic keys and their respective lengths.
+    Special handling is included for the "video_frame_size" key, which may contain a list of
+    lists (e.g., [[1920, 1080], [1280, 720], ...]) and is included in the validation if so.
 
     Parameters
     ----------
     configs : dict
-        A dictionary where each key maps to a list of values. Each value represents
-        the configuration for one trial or a single shared value (length 1).
+        Dictionary of configuration parameters, where each value is either a single value
+        or a list of values representing multiple trials.
 
     Returns
     -------
-    trial_count : int
-        An integer of the number of configuration values, or trials, provided.
+    int
+        The number of trials specified across multi-trial configurations.
 
     Raises
     ------
     ValueError
-        If configuration values have inconsistent lengths (i.e., not all are 1 or the same other number),
-        this exception is raised with a list of the problematic keys.
-        
+        If multiple configuration keys have differing numbers of trials.
+    
     Examples
     --------
     >>> configs = {
@@ -106,16 +105,12 @@ def extract_config_lens(configs):
  # Confirm that all provided configurations are in a list of the same length
     if len(unique_counts) > 1:
         # Find the inconsistent key lists
-        key_counts = {}
-        for key, count in config_counts.items():
-            key_counts.setdefault(count, []).append(key)
-        problem_counts = [c for c in key_counts]
-        
-        # Raise a helpful error stating which keys were provided inconsistent lengths
+        # Raise a helpful error stating the length of each value for keys that have multiple trials
         err_msg = "Inconsistent configuration lengths found:\n"
-        for count in problem_counts:
-            keys = key_counts[count]
-            err_msg += f" - Count {count}: {keys}\n"
+        err_msg += "All configuration parameters that have \n"
+        err_msg += "multiple trials, must have the same length. \n"
+        for key, count in config_counts.items():
+            err_msg += f" - {key} trial count: {count}\n"
         raise ValueError(err_msg)
     else:
         trial_count = unique_counts.pop()
