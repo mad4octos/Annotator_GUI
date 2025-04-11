@@ -38,12 +38,15 @@ def read_config_yaml(config_path):
 def lol_check(variable):
     """"
     Reads in a variable and checks if it is a list of lists (lol).
-
+    
+    Parameters
+    ----------
+    variable : any
+        The input variable to check. 
     Returns
     -------
-    Bool
-        True, if variable is a list of lists. 
-        False if variable is any other format. 
+    bool
+        True, if variable is a list of lists, False otherwise.
     """
     return isinstance (variable, list) and all(isinstance(item, list) for item in variable)
 
@@ -81,7 +84,7 @@ def extract_config_lens(configs):
     >>> configs = {
     ...     'frame_dir': ['path1', 'path2'],
     ...     'model_cfg': ['cfg1', 'cfg2'],
-    ...     'fps': [30]
+    ...     'fps': 30
     ... }
     >>> extract_config_lens(configs)
     There are 2 trials provided for processing.
