@@ -91,7 +91,7 @@ The frames from a video will need to be extracted and stored within a folder bef
 # This must match the SAM2 Start Frame used in the GUI
 SAM2_start_frame=0 
 
-# Specify the original fps of the video..
+# Specify the original fps of the video.
 video_fps=23.997
 
 # Specify the path to the video that will be processed
