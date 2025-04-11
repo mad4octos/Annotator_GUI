@@ -93,16 +93,12 @@ def extract_config_lens(configs):
     # Get length of provided values for each listed config key as a dictionary 
     config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list) 
                      and key != "video_frame_size"}
-    
+    # If multiple video_frame_size trials are provided, add count to config_counts
+    if lol_check(configs["video_frame_size"]):
+        config_counts["video_frame_size"] = len(configs["video_frame_size"])
+
     # Extract the unique lengths of configuration values
     unique_counts = set(config_counts.values())
-    
-    # Explicitly check for list of lists in video_frame_size
-    lol = lol_check(configs["video_frame_size"])
-    if lol:
-        size_count = len(configs["video_frame_size"])
-        if size_count not in unique_counts:
-            raiseValueError(f"Inconsistent configuration lengths found in video_frame_size")
     
     # Discard instances where user provied a single value in list format
     unique_counts.discard(1)
