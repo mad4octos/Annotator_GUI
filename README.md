@@ -148,7 +148,7 @@ A folder should be set up containing the `annotations.npy` file, the `frames` su
 
 The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
 
-Lines 35 - 45 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
+Lines 41 - 51 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
 ```
 # Key in the annotation corresponding to SAM2 
 frame_idx_name: 'Frame'
