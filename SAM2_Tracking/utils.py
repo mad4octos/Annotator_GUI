@@ -55,10 +55,7 @@ def extract_config_lens(configs):
     """
     Validates and extracts the number of trials from a configuration dictionary.
 
-    This function checks that all configuration entries meant to support multiple trials
-    (i.e., those stored as lists) have the same number of entries, excluding entries where
-    only a single value is provided in list format. It raises a ValueError if inconsistent
-    lengths are found among multi-trial configurations.
+p
 
     Special handling is included for the "video_frame_size" key, which may contain a list of
     lists (e.g., [[1920, 1080], [1280, 720], ...]) and is included in the validation if so.
@@ -229,7 +226,7 @@ def run_segmentation(config_file, device):
     
     Examples
     --------
-    >>> run_segmentation("template_configs.yaml", device="cuda:0")
+    >>> run_segmentation("template_configs.yaml", device="cuda")
     Processing Trial 0: Frames from ./data/frames1, Annotations from ./data/annotations1.npy, Masks saving to ./generated_frame_masks1.pkl
     Processing Trial 1: Frames from ./data/frames2, Annotations from ./data/annotations2.npy, Masks saving to ./generated_frame_masks2.pkl
     """
@@ -435,7 +432,7 @@ def run_video_processing(configs, device):
         Each parameter must either be a single value (applied to all trials) or a list 
         of values with one entry per trial.
     device : str
-        The device used during video rendering (e.g., "cuda:0" or "cpu").
+        The device used during video rendering (e.g., "cuda" or "cpu").
 
     Returns
     -------
@@ -461,7 +458,7 @@ def run_video_processing(configs, device):
     
     Examples
     --------
-    >>> run_video_processing("template_configs.yaml", device="cuda:0")
+    >>> run_video_processing("template_configs.yaml", device="cuda")
     Creating video: ./output_trial1.mp4 from ./frames1 and ./generated_frame_masks1.pkl
     Creating video: ./output_trial2.mp4 from ./frames2 and ./generated_frame_masks2.pkl
     """
