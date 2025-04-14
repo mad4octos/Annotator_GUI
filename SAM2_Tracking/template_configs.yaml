@@ -1,8 +1,5 @@
 # Specifying SAM2 install directory location 
-sam2_install_dir: "/path/to/sam2/sam2/"
-
-# Directory containing JPGs corresponding to the frames of the video
-frame_dir: "/path/to/frames"
+sam2_install_dir: "/path/to/sam2/sam2/"    
 
 ######################################################
 # build_sam2_video_predictor specific configurations #
@@ -18,20 +15,29 @@ non_overlap_masks: False
 # annotation specific configurations   #
 ########################################
 
+# Directories containing JPGs corresponding to the frames of the video
+frame_dir: 
+    - "/path/to/frames/trial1"
+    - "/path/to/frames/trial2"
+
+# File specifying annotations for video frames 
+annotations_file: 
+    - "/path/to/test_annotations_trial1.npy" 
+    - "/path/to/test_annotations_trial2.npy" 
+
 # The FPS of the unreduced video that the annotations were 
-# initially created for
+# initially created with
 fps: 24
 
 # Value that ensures the annotated frame value matches up 
 # with the fames that will be ingested by SAM2
-SAM2_start: 0
+SAM2_start: 
+    - 0 # Trial 1 SAM2 start
+    - 2 # Trial 2 SAM2 start
 
 # Reduced frame rate. Must match with the extracted frame rate.
 out_fps: 3
-
-# File specifying annotations for video frames 
-annotations_file: "/path/to/test_annotations.npy" 
-
+    
 # Key in the annotation corresponding to SAM2 frame_idx
 frame_idx_name: 'Frame'
 
@@ -63,16 +69,20 @@ async_loading_frames: False
 # run_propagation specific configurations #
 ###########################################
 
-# The location you want to save the dictionary of masks to
-masks_dict_file: './generated_frame_masks.pkl'
+# The name and location to save the dictionary of masks.
+masks_dict_file: 
+    - './trial_1_generated_frame_masks.pkl'
+    - './trial_2_generated_frame_masks.pkl'
 
 ###################################
 # Video creation specific configs #
 ###################################
 
 # The name of the video file to be created
-video_file: "./test_video.mp4"
-
+video_file: 
+    - "./trial_1_test_video.mp4"
+    - "./trial_2_test_video.mp4"
+    
 # Font size for drawn object IDs
 font_size: 16
 

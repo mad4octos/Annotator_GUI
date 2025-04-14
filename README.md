@@ -178,6 +178,69 @@ If default values are used, when the code is done running, it should produce a d
 mamba activate sam2-env
 python3 create_video.py
 ```
-This video can be viewed to validate SAM2 predictions.
+This output video can be viewed to validate SAM2 predictions.
 
-Please raise an issue or contact M.Hair if you experience issues using this code. 
+## Running SAM2 on multiple trials
+If a user desires to process multiple trials in a single batch, they can specify multiple values for each parameter within the `template_configs.yaml`. Each parameter can be specified with either a single value (which will be applied to all processed trials) or a list of *n* values, where *n* = number of trials. For example: 
+
+```
+########################################
+# annotation specific configurations   #
+########################################
+
+# Directories containing JPGs corresponding to the frames of the video
+frame_dir: 
+    - "/path/to/frames/trial1"
+    - "/path/to/frames/trial2"
+    - "/path/to/frames/trial3"
+
+# File specifying annotations for video frames 
+annotations_file: 
+    - "/path/to/test_annotations_trial1.npy" 
+    - "/path/to/test_annotations_trial2.npy" 
+    - "/path/to/test_annotations_trial3.npy" 
+
+# The FPS of the unreduced video that the annotations were 
+# initially created with
+fps: 24
+
+# Value that ensures the annotated frame value matches up 
+# with the fames that will be ingested by SAM2
+SAM2_start: 
+    - 0 # Trial 1 SAM2 start
+    - 2 # Trial 2 SAM2 start
+    - 2 # Trial 3 SAM2 start
+
+# Reduced frame rate. Must match with the extracted frame rate.
+out_fps: 3
+
+# The name and location to save the dictionary of masks.
+masks_dict_file: 
+    - './trial_1_generated_frame_masks.pkl'
+    - './trial_2_generated_frame_masks.pkl'
+    - './trial_3_generated_frame_masks.pkl'
+
+# The name of the video file to be created
+video_file: 
+    - "./trial_1_test_video.mp4"
+    - "./trial_2_test_video.mp4"
+    - "./trial_3_test_video.mp4"
+```
+With the example configuration above, running both the `main.py` and `create_video.py` scripts will process 3 trials using their respective frames, annotations, and SAM2 start value, and will save a dictionary of masks and output video for each trial.
+
+For every trial to be fully processed and visualized, a name for `frame_dir`, `annotation_file`, `masks_dict_file`, and `video_file` should be specified in the `template_configs.yaml`. Other values in the `template_configs.yaml` can be left as the default, or can be specified as desired. 
+
+> [!Note] 
+> If multiple values are not specified for the `masks_dict_file` and `video_file`, 
+> the SAM2 outputs from multiple trials will overwrite each other. 
+
+After adjusting the `template_configs.yaml` to specify all trials to be processed, the SAM2 processing and video creation can be run as normal:
+```
+cd path/to/working/directory
+
+mamba activate sam2-env
+python3 main.py
+python3 create_video.py
+```
+
+Please raise an issue or contact M. Hair if you experience issues using this code. 
