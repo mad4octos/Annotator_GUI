@@ -428,7 +428,7 @@ def run_video_processing(configs, device):
         Each parameter must either be a single value (applied to all trials) or a list 
         of values with one entry per trial.
     device : torch.device 
-            A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
+            A `torch.device` class specifying the device to use to draw the masks.
 
     Returns
     -------
