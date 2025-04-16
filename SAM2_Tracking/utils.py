@@ -189,7 +189,7 @@ def run_segmentation(config_file, device):
     This function reads a YAML configuration file and processes it to extract 
     parameters for each trial. Each configuration parameter in the YAML file must 
     either be a single value (applied to all trials) or a list of values (one per trial). 
-    For each trial, the function initializes a `SAM2FishSegmenter` with the appropriate 
+    For each trial, the function initializes a `SAM2FishSegmenter` object with the appropriate 
     configuration and executes the segmentation and propagation process.
 
     Parameters
