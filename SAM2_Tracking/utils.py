@@ -55,8 +55,6 @@ def extract_config_lens(configs):
     """
     Validates and extracts the number of trials from a configuration dictionary.
 
-p
-
     Special handling is included for the "video_frame_size" key, which may contain a list of
     lists (e.g., [[1920, 1080], [1280, 720], ...]) and is included in the validation if so.
 
