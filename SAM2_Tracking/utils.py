@@ -113,15 +113,12 @@ def extract_config_lens(configs):
         if len(unique_counts) > 1: # Multiple trials, some contain lists of a single entry
             unique_counts.discard(1)
             trial_count = unique_counts.pop()
-            print(f"There are {trial_count} trials provided for processing")
             return trial_count
         if not unique_counts: # The set is empty because all values are provided as a single entry
             trial_count = 1
-            print(f" There is 1 trial provided for processing")
             return trial_count
         else: # All list configs are provided in the same length (no single lists)
             trial_count = unique_counts.pop()
-            print(f"There are {trial_count} trials provided for processing")
             return trial_count
 
 def get_trial_config(configs, i):
@@ -198,8 +195,8 @@ def run_segmentation(config_file, device):
         Path to the YAML configuration file containing all segmentation parameters.
         Each parameter should either be a scalar (applied to all trials) or a list of values
         (with one entry per trial).
-    device : str
-        The device on which to run the segmentation model (e.g., "cuda" or "cpu").
+    device : torch.device 
+            A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
 
     Returns
     -------
@@ -224,7 +221,7 @@ def run_segmentation(config_file, device):
     
     Examples
     --------
-    >>> run_segmentation("template_configs.yaml", device="cuda")
+    >>> run_segmentation("template_configs.yaml", device=torch.device("cuda"))
     Processing Trial 0: Frames from ./data/frames1, Annotations from ./data/annotations1.npy, Masks saving to ./generated_frame_masks1.pkl
     Processing Trial 1: Frames from ./data/frames2, Annotations from ./data/annotations2.npy, Masks saving to ./generated_frame_masks2.pkl
     """
@@ -233,7 +230,8 @@ def run_segmentation(config_file, device):
     
     # Retrieve trial count from the length of values provided for each configuration key
     trial_count = extract_config_lens(configs)
-    
+    print(f"There are {trial_count} trials provided for processing")
+
     # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
         trial_config = get_trial_config(configs, i)
@@ -420,7 +418,7 @@ def run_video_processing(configs, device):
 
     This function reads a YAML configuration file and extracts trial-specific parameters 
     to generate annotated output videos using `write_output_video()`. Each trial uses 
-    previously computed masks from the SAM2FishSegmenter and overlays them on input 
+    previously computed masks from `SAM2FishSegmenter` and overlays them on input 
     frames to produce a visual result.
 
     Parameters
@@ -429,8 +427,8 @@ def run_video_processing(configs, device):
         Path to the YAML configuration file containing video generation settings. 
         Each parameter must either be a single value (applied to all trials) or a list 
         of values with one entry per trial.
-    device : str
-        The device used during video rendering (e.g., "cuda" or "cpu").
+    device : torch.device 
+            A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
 
     Returns
     -------
@@ -456,7 +454,7 @@ def run_video_processing(configs, device):
     
     Examples
     --------
-    >>> run_video_processing("template_configs.yaml", device="cuda")
+    >>> run_video_processing("template_configs.yaml", device=torch.device("cuda"))
     Creating video: ./output_trial1.mp4 from ./frames1 and ./generated_frame_masks1.pkl
     Creating video: ./output_trial2.mp4 from ./frames2 and ./generated_frame_masks2.pkl
     """
@@ -465,6 +463,7 @@ def run_video_processing(configs, device):
     
     # Retrieve trial count from the length of values provided for each configuration key
     trial_count = extract_config_lens(configs)
+    print(f"There are {trial_count} trials provided for processing")
 
      # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
@@ -511,7 +510,7 @@ def get_jpg_paths(jpg_dir):
 
     return sorted(jpg_paths)
 
-def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
+def draw_masks(mask_dict, frame_path, colors, device, alpha=0.6):
     """
     For each mask provided in `mask_dict`, draws masks on top of the 
     image provided by `frame_path`. 
@@ -527,6 +526,8 @@ def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
         A list of tuples representing RGB colors for each segmentation mask
     alpha : float 
         Alpha value for the segmentation masks 
+    device : torch.device 
+        A `torch.device` class specifying the device to use for mask drawing 
 
     Returns
     -------
@@ -638,7 +639,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, out_fps,
 
         # Draw masks on the frame, if they exist
         image, centroids = draw_masks(mask_dict=frame_masks[frame_idx], frame_path=img_path, 
-                                      colors=colors, alpha=alpha, device=device)
+                                      colors=colors, device=device, alpha=alpha)
 
         # Get original image dimensions (before resizing)
         orig_height, orig_width = image.shape[1:]
