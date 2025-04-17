@@ -23,10 +23,11 @@ video_speed = 1.0  # Playback speed multiplier
 frames = []
 vid_height, vid_width = 0, 0
 fps = 30  # Default FPS, will update dynamically based on video
+out_fps = 3 # Default temporal resolution for SAM2. 
 special_frame_start = 0  # Default starting frame for SAM2
-out_fps = 3 # Default extracted frame rate for SAM2
 special_frame_interval = 10  # Default, will calculate dynamically
 ObjType = ["Parrotfish"]  # Default fish family
+
 
 #Define video player size. Should be x = y * 1.5
 video_size_x=600
@@ -56,7 +57,7 @@ def load_video():
     frames.clear()
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Update FPS dynamically
-    special_frame_interval = max(1, round(fps) / out_fps)  # Calculate interval for the SAM2 extracted frame rate
+    special_frame_interval = max(1, round(fps)/out_fps)  # Calculate interval for SAM2 extracted frames.
 
     while cap.isOpened():
         ret, frame = cap.read()

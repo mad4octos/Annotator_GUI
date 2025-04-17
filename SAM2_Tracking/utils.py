@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd 
 import pickle
+from sam2_fish_segmenter import SAM2FishSegmenter
 
 def read_config_yaml(config_path):
     """
@@ -34,6 +35,211 @@ def read_config_yaml(config_path):
         config = yaml.safe_load(file)  # safe_load avoids arbitrary code execution
 
     return config
+
+def lol_check(variable):
+    """"
+    Reads in a variable and checks if it is a list of lists (lol).
+    
+    Parameters
+    ----------
+    variable : any
+        The input variable to check. 
+    Returns
+    -------
+    bool
+        True, if variable is a list of lists, False otherwise.
+    """
+    return isinstance (variable, list) and all(isinstance(item, list) for item in variable)
+
+def extract_config_lens(configs):
+    """
+    Validates and extracts the number of trials from a configuration dictionary.
+
+    Special handling is included for the "video_frame_size" key, which may contain a list of
+    lists (e.g., [[1920, 1080], [1280, 720], ...]) and is included in the validation if so.
+
+    Parameters
+    ----------
+    configs : dict
+        Dictionary of configuration parameters, where each value is either a single value
+        or a list of values representing multiple trials.
+
+    Returns
+    -------
+    int
+        The number of trials specified across multi-trial configurations.
+
+    Raises
+    ------
+    ValueError
+        If multiple configuration keys have differing numbers of trials.
+    
+    Examples
+    --------
+    >>> configs = {
+    ...     'frame_dir': ['path1', 'path2'],
+    ...     'model_cfg': ['cfg1', 'cfg2'],
+    ...     'fps': 30
+    ... }
+    >>> extract_config_lens(configs)
+    There are 2 trials provided for processing.
+    2
+    """
+    # Get length of provided values for each listed config key as a dictionary 
+    config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list) 
+                     and key != "video_frame_size"}
+    # If multiple video_frame_size trials are provided, add count to config_counts
+    if lol_check(configs["video_frame_size"]):
+        config_counts["video_frame_size"] = len(configs["video_frame_size"])
+
+    # Extract the unique lengths of configuration values
+    unique_counts = set(config_counts.values())
+    
+    # Check for mismatches in provided configuration lengths,
+    # accounting for instances where the user provided a single value in list format
+    mismatch = len([x for x in unique_counts if x!= 1]) > 1
+
+ # Confirm that all provided configurations are in a list of the same length
+    if mismatch:
+        # Find the inconsistent key lists
+        # Raise a helpful error stating the length of each value for keys that have multiple trials
+        err_msg = "Inconsistent configuration lengths found:\n"
+        err_msg += "All configuration parameters that have \n"
+        err_msg += "multiple trials, must have the same length. \n"
+        for key, count in config_counts.items():
+            err_msg += f" - {key} trial count: {count}\n"
+        raise ValueError(err_msg)
+    else:
+        if len(unique_counts) > 1: # Multiple trials, some contain lists of a single entry
+            unique_counts.discard(1)
+            trial_count = unique_counts.pop()
+            return trial_count
+        if not unique_counts: # The set is empty because all values are provided as a single entry
+            trial_count = 1
+            return trial_count
+        else: # All list configs are provided in the same length (no single lists)
+            trial_count = unique_counts.pop()
+            return trial_count
+
+def get_trial_config(configs, i):
+    """
+    Extracts a specific trial configuration from a general configuration dictionary.
+
+    This function supports configurations where values can be:
+    - A single value (int, str, etc.)
+    - A list of values (used for multiple trials)
+    - A list of lists (specifically for the "video_frame_size" key)
+
+    Parameters
+    ----------
+    configs : dict
+        Dictionary containing configuration values. Each key's value can be:
+        - a scalar (same for all trials),
+        - a list (each entry for a separate trial), or
+        - for "video_frame_size" specifically, a list of lists or a single list.
+    i : int
+        Index of the trial to extract configuration for.
+
+    Returns
+    -------
+    trial_config : dict
+        Dictionary containing configuration values for the i-th trial.
+
+    Notes
+    -----
+    This function depends on a helper function `lol_check(value)` that determines
+    whether a value is a list of lists.
+
+    Examples
+    --------
+    >>> configs = {
+    ...     "fps": [32, 64],
+    ...     "out_fps": 3,
+    ...     "video_frame_size": [[640, 480], [1280, 720]]
+    ... }
+    >>> get_trial_config(configs, 1)
+    {'fps': 64, 'out_fps': 3, 'video_frame_size': [1280, 720]}
+    """
+    
+    trial_config = {}
+    for key, value in configs.items():
+        # Handle "video_frame_size" separately
+        if key == "video_frame_size":
+            # Check for list of lists
+            if not lol_check(value):
+                trial_config[key] = value # Assign the entire value if not a list of lists
+            else: 
+                trial_config[key] = value[i] # Assign the i-th list if not a list of lists
+        elif isinstance(value,list):
+            if len(value) > 1: # Lists with more than one value
+                trial_config[key] = value[i] # Assign the i-th value
+            else: # List with a single value
+                trial_config[key] = value[0] # Assign the first (only) value
+        else: # single non-list value
+            trial_config[key] = value
+    return trial_config
+
+def run_segmentation(config_file, device):
+    """
+    Runs SAM2 segmentation and mask propagation for one or more trial configurations.
+
+    This function reads a YAML configuration file and processes it to extract 
+    parameters for each trial. Each configuration parameter in the YAML file must 
+    either be a single value (applied to all trials) or a list of values (one per trial). 
+    For each trial, the function initializes a `SAM2FishSegmenter` object with the appropriate 
+    configuration and executes the segmentation and propagation process.
+
+    Parameters
+    ----------
+    config_file : str
+        Path to the YAML configuration file containing all segmentation parameters.
+        Each parameter should either be a scalar (applied to all trials) or a list of values
+        (with one entry per trial).
+    device : torch.device 
+            A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
+
+    Returns
+    -------
+    None
+        The function does not return anything explicitly. However, it saves a pickled 
+        dictionary of masks (as specified by `masks_dict_file` in each trial config) 
+        for each trial after segmentation and propagation.
+
+    Notes
+    -----
+    - The number of trials is determined by the length of list-type parameters in the 
+      configuration file. All such parameters must have the same length.
+    - The function uses `read_config_yaml`, `extract_config_lens`, and `get_trial_config` 
+      as helpers in utils to parse and manage configurations.
+    
+    Warnings
+    --------
+    If the configuration specifies only a single `masks_dict_file` name while running multiple 
+    trials, the output masks will be written to the same file, and results will be 
+    overwritten. To prevent this, provide a list of unique `masks_dict_file` names — 
+    one for each trial.
+    
+    Examples
+    --------
+    >>> run_segmentation("template_configs.yaml", device=torch.device("cuda"))
+    Processing Trial 0: Frames from ./data/frames1, Annotations from ./data/annotations1.npy, Masks saving to ./generated_frame_masks1.pkl
+    Processing Trial 1: Frames from ./data/frames2, Annotations from ./data/annotations2.npy, Masks saving to ./generated_frame_masks2.pkl
+    """
+    # Load the YAML configuration file
+    configs = read_config_yaml(config_file)
+    
+    # Retrieve trial count from the length of values provided for each configuration key
+    trial_count = extract_config_lens(configs)
+    print(f"Running segmentation for {trial_count} trial(s)")
+
+    # Iterate over each trial and extract configuration values
+    for i in range(trial_count): 
+        trial_config = get_trial_config(configs, i)
+
+        # Initialize the segmenter with modified trial configs
+        segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
+        print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
+        segmenter.run_propagation()
 
 def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):
@@ -206,6 +412,80 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
 
     return obj_frame_chunks, df
 
+def run_video_processing(configs, device):
+    """
+    Generates output videos visualizing SAM2 segmentation results for one or more trials.
+
+    This function reads a YAML configuration file and extracts trial-specific parameters 
+    to generate annotated output videos using `write_output_video()`. Each trial uses 
+    previously computed masks from `SAM2FishSegmenter` and overlays them on input 
+    frames to produce a visual result.
+
+    Parameters
+    ----------
+    configs : str
+        Path to the YAML configuration file containing video generation settings. 
+        Each parameter must either be a single value (applied to all trials) or a list 
+        of values with one entry per trial.
+    device : torch.device 
+            A `torch.device` class specifying the device to use to draw the masks.
+
+    Returns
+    -------
+    None
+        The function does not return any values. It generates and saves a video file 
+        (as specified in `video_file` in each trial configuration) for each trial.
+
+    Notes
+    -----
+    - This function assumes that the segmentation masks (stored in `masks_dict_file`) 
+      have already been generated for each trial.
+    - Trial count is inferred from the number of values provided for list-type parameters.
+      All list-type parameters must have the same length.
+    - The function relies on `read_config_yaml`, `extract_config_lens`, and 
+      `get_trial_config` in utils to handle configuration management.
+    - `write_output_video()` is responsible for the actual rendering and saving of the video.
+    
+    Warnings
+    --------
+    If the configuration specifies only a single `video_file` name while running multiple 
+    trials, the output videos will be written to the same file, and results will be 
+    overwritten. To prevent this, provide a list of unique `video_file` names — one for each trial.
+    
+    Examples
+    --------
+    >>> run_video_processing("template_configs.yaml", device=torch.device("cuda"))
+    Creating video: ./output_trial1.mp4 from ./frames1 and ./generated_frame_masks1.pkl
+    Creating video: ./output_trial2.mp4 from ./frames2 and ./generated_frame_masks2.pkl
+    """
+    # Load the YAML configuration file
+    configs = read_config_yaml(configs)
+    
+    # Retrieve trial count from the length of values provided for each configuration key
+    trial_count = extract_config_lens(configs)
+    print(f"Creating masked video(s) for {trial_count} trial(s)")
+
+     # Iterate over each trial and extract configuration values
+    for i in range(trial_count): 
+        trial_config = get_trial_config(configs,i)
+        
+        # Write the output with modified trial configs
+        print(f"Creating video: {trial_config['video_file']} from {trial_config['frame_dir']} and {trial_config['masks_dict_file']}")
+
+        write_output_video(
+            frame_dir = trial_config["frame_dir"],
+            frame_masks_file = trial_config["masks_dict_file"],
+            video_file=trial_config["video_file"],
+            out_fps=trial_config["out_fps"],
+            video_frame_size=trial_config["video_frame_size"],
+            fps=trial_config["fps"],
+            SAM2_start=trial_config["SAM2_start"],
+            font_size=trial_config["font_size"],
+            font_color=trial_config["font_color"],
+            alpha=trial_config["alpha"],
+            device=device
+            )
+        
 def get_jpg_paths(jpg_dir):
     """
     Compiles a list of paths for all JPGs in the provided directory. 
@@ -230,7 +510,7 @@ def get_jpg_paths(jpg_dir):
 
     return sorted(jpg_paths)
 
-def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
+def draw_masks(mask_dict, frame_path, colors, device, alpha=0.6):
     """
     For each mask provided in `mask_dict`, draws masks on top of the 
     image provided by `frame_path`. 
@@ -246,6 +526,8 @@ def draw_masks(mask_dict, frame_path, colors, alpha=0.6, device="cuda"):
         A list of tuples representing RGB colors for each segmentation mask
     alpha : float 
         Alpha value for the segmentation masks 
+    device : torch.device 
+        A `torch.device` class specifying the device to use for mask drawing 
 
     Returns
     -------
@@ -357,7 +639,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, out_fps,
 
         # Draw masks on the frame, if they exist
         image, centroids = draw_masks(mask_dict=frame_masks[frame_idx], frame_path=img_path, 
-                                      colors=colors, alpha=alpha, device=device)
+                                      colors=colors, device=device, alpha=alpha)
 
         # Get original image dimensions (before resizing)
         orig_height, orig_width = image.shape[1:]
