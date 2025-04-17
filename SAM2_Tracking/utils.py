@@ -230,7 +230,7 @@ def run_segmentation(config_file, device):
     
     # Retrieve trial count from the length of values provided for each configuration key
     trial_count = extract_config_lens(configs)
-    print(f"There are {trial_count} trials provided for processing")
+    print(f"Running segmentation for {trial_count} trial(s)")
 
     # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
