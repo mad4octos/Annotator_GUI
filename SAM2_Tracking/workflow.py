@@ -5,6 +5,15 @@ import functools
 import parallel_utils as pu
 
 
+def run_segmentation_trial(configs, i):
+
+    trial_config = utils.get_trial_config(configs, i)
+
+    # Initialize the segmenter with modified trial configs
+    segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
+    print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
+    segmenter.run_propagation()
+
 def serial_segmentation(configs, trial_count, device_input):
     """
 
@@ -14,12 +23,8 @@ def serial_segmentation(configs, trial_count, device_input):
 
     # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
-        trial_config = utils.get_trial_config(configs, i)
 
-        # Initialize the segmenter with modified trial configs
-        segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
-        print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
-        segmenter.run_propagation()
+        run_segmentation_trial(configs, i)
 
 def parallel_segmentation(configs, trial_count, device_input, num_workers):
 
