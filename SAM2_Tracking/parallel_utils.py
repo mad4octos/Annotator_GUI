@@ -20,7 +20,18 @@ def checks(num_cores, num_workers):
             f"Error: Number of workers ({num_workers}) exceeds the number of available cores ({num_cores}). "
             f"Please reduce the number of workers or increase the number of cores.")
 
-def get_core_assignments(num_workers, available_cores):
+def get_core_assignments(num_workers):
+
+    # Get the set of core IDs for each core
+    affinity_set = os.sched_getaffinity(0)
+
+    # Sort core IDs
+    available_cores = sorted(list(affinity_set))
+
+    # Get the number of available cores
+    num_cores = len(available_cores)  
+
+    checks(num_cores, num_workers)
 
     # Create core assignments in a round-robin fashion 
     core_assignments = [[] for _ in range(num_workers)]

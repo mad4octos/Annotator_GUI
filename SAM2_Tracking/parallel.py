@@ -5,18 +5,7 @@ import parallel_utils as pu
 
 num_workers = 3  # Number of worker processes
 
-# Get the set of core IDs for each core
-affinity_set = os.sched_getaffinity(0)
-
-# Sort core IDs
-available_cores = sorted(list(affinity_set))
-
-# Ge the number of available cores
-num_cores = len(available_cores)  
-
-pu.checks(num_cores, num_workers)
-
-core_assignments = pu.get_core_assignments(num_workers, available_cores)
+core_assignments = pu.get_core_assignments(num_workers)
 
 data = [1, 2, 3, 4, 5, 6, 7, 8, 9 , 10]
 
