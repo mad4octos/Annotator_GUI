@@ -36,7 +36,7 @@ The current time, current frame, and playback speed are shown at the top of the 
 The SAM2 Start Frame is a function for ensuring that the annotated frames correspond with the frames extracted for SAM2. The SAM2 Start Frame specifies which frame to begin counting at, then will display a message "SAM2 Frame: Annotate Fish Position" on the 3 frames per second that will be processed by SAM2.
 > [!Note] 
 > It is the default assumption that frames will be extracted from the raw video at 3 FPS. 
-> If a different temporal resolution is desired, line 27 of `LocalAnnotationBitesGUI_0226.py` can be edited to adjust the `out_fps`. 
+> If a different temporal resolution is desired, line 26 of `LocalAnnotationBitesGUI_0226.py` can be edited to change `3`to your desired extraction frame rate. 
 As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos where left-right video syncing has already been completed or is not necessary. 
 
 ### Click Types
@@ -92,7 +92,7 @@ The frames from a video will need to be extracted and stored within a folder bef
 SAM2_start_frame=0 
 
 # Specify the original fps of the video.
-video_fps=24
+video_fps=23.997
 
 # Specify the path to the video that will be processed
 video_name="path/to/GX137102.MP4"
@@ -148,7 +148,7 @@ A folder should be set up containing the `annotations.npy` file, the `frames` su
 
 The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
 
-Lines 35 - 45 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
+Lines 41 - 51 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
 ```
 # Key in the annotation corresponding to SAM2 
 frame_idx_name: 'Frame'
@@ -178,5 +178,69 @@ If default values are used, when the code is done running, it should produce a d
 mamba activate sam2-env
 python3 create_video.py
 ```
-This video can be viewed to validate SAM2 predictions.
-Please raise an issue or contact M.Hair if you experience issues using this code. 
+This output video can be viewed to validate SAM2 predictions.
+
+## Running SAM2 on multiple trials
+If a user desires to process multiple trials in a single batch, they can specify multiple values for each parameter within the `template_configs.yaml`. Each parameter can be specified with either a single value (which will be applied to all processed trials) or a list of *n* values, where *n* = number of trials. For example: 
+
+```
+########################################
+# annotation specific configurations   #
+########################################
+
+# Directories containing JPGs corresponding to the frames of the video
+frame_dir: 
+    - "/path/to/frames/trial1"
+    - "/path/to/frames/trial2"
+    - "/path/to/frames/trial3"
+
+# File specifying annotations for video frames 
+annotations_file: 
+    - "/path/to/test_annotations_trial1.npy" 
+    - "/path/to/test_annotations_trial2.npy" 
+    - "/path/to/test_annotations_trial3.npy" 
+
+# The FPS of the unreduced video that the annotations were 
+# initially created with
+fps: 24
+
+# Value that ensures the annotated frame value matches up 
+# with the fames that will be ingested by SAM2
+SAM2_start: 
+    - 0 # Trial 1 SAM2 start
+    - 2 # Trial 2 SAM2 start
+    - 2 # Trial 3 SAM2 start
+
+# Reduced frame rate. Must match with the extracted frame rate.
+out_fps: 3
+
+# The name and location to save the dictionary of masks.
+masks_dict_file: 
+    - './trial_1_generated_frame_masks.pkl'
+    - './trial_2_generated_frame_masks.pkl'
+    - './trial_3_generated_frame_masks.pkl'
+
+# The name of the video file to be created
+video_file: 
+    - "./trial_1_test_video.mp4"
+    - "./trial_2_test_video.mp4"
+    - "./trial_3_test_video.mp4"
+```
+With the example configuration above, running both the `main.py` and `create_video.py` scripts will process 3 trials using their respective frames, annotations, and SAM2 start value, and will save a dictionary of masks and output video for each trial.
+
+For every trial to be fully processed and visualized, a name for `frame_dir`, `annotation_file`, `masks_dict_file`, and `video_file` should be specified in the `template_configs.yaml`. Other values in the `template_configs.yaml` can be left as the default, or can be specified as desired. 
+
+> [!Note] 
+> If multiple values are not specified for the `masks_dict_file` and `video_file`, 
+> the SAM2 outputs from multiple trials will overwrite each other. 
+
+After adjusting the `template_configs.yaml` to specify all trials to be processed, the SAM2 processing and video creation can be run as normal:
+```
+cd path/to/working/directory
+
+mamba activate sam2-env
+python3 main.py
+python3 create_video.py
+```
+
+Please raise an issue or contact M. Hair if you experience issues using this code. 
