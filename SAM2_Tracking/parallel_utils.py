@@ -70,11 +70,11 @@ def init_worker(all_assignments, lock, counter):
     set_process_affinity(my_cores)
 
 
-def worker_function(item, num_workers):
+def worker_function(item, num_workers, device_input):
 
     print(f"process: {os.getpid()} processing item {item}")
     # print(f"1.0/num_workers: {1.0/num_workers}")
-    device = torch.device('cuda:0')
+    device = torch.device(device_input)
 
     # free_memory_bytes, total_memory_bytes = torch.cuda.mem_get_info(device)
     # total_memory_mib = total_memory_bytes / (1024 ** 2)
