@@ -5,43 +5,53 @@ import functools
 import parallel_utils as pu
 
 
-def run_segmentation_trial(configs, i):
+def run_segmentation_trial(i, configs):
 
     trial_config = utils.get_trial_config(configs, i)
 
     # Initialize the segmenter with modified trial configs
-    segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
+    segmenter = SAM2FishSegmenter(configs=trial_config, device=trial_config['device'])
     print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
     segmenter.run_propagation()
 
-def serial_segmentation(configs, trial_count, device_input):
+def serial_segmentation(configs):
     """
 
     """
 
-    device = torch.device(device_input)
+    # Retrieve trial count from the length of values provided for each configuration key
+    trial_count = utils.extract_config_lens(configs)
+
+    print(f"Running segmentation for {trial_count} trial(s) serially")
+
+    device = torch.device(configs['device'])
 
     # Iterate over each trial and extract configuration values
     for i in range(trial_count): 
 
-        run_segmentation_trial(configs, i)
+        run_segmentation_trial(i, configs)
 
-def parallel_segmentation(configs, trial_count, device_input, num_workers):
+def parallel_segmentation(configs):
 
-    core_assignments = pu.get_core_assignments(num_workers)
+    # Retrieve trial count from the length of values provided for each configuration key
+    trial_count = utils.extract_config_lens(configs)
+
+    print(f"Running segmentation for {trial_count} trial(s) in parallel")
+
+    core_assignments = pu.get_core_assignments(configs['num_workers'])
 
     data = range(trial_count)
 
     # Create the partial function (allows us to pass in additional inputs)
-    partial_func = functools.partial(pu.worker_function, num_workers=num_workers, device_input=device_input)
+    partial_func = functools.partial(pu.worker_function, num_workers=configs['num_workers'], device_input=configs['device'])
 
     lock = multiprocessing.Lock()
     counter = multiprocessing.Value('i', 0) # Rank counter starts at 0
 
-    with multiprocessing.Pool(processes=num_workers, initializer=pu.init_worker, initargs=(core_assignments, lock, counter)) as pool:
+    with multiprocessing.Pool(processes=configs['num_workers'], initializer=pu.init_worker, initargs=(core_assignments, lock, counter)) as pool:
         pool.map(partial_func, data)
 
-def run_segmentation(config_file, device):
+def run_segmentation(config_file):
     """
     Runs SAM2 segmentation and mask propagation for one or more trial configurations.
 
@@ -57,8 +67,6 @@ def run_segmentation(config_file, device):
         Path to the YAML configuration file containing all segmentation parameters.
         Each parameter should either be a scalar (applied to all trials) or a list of values
         (with one entry per trial).
-    device : torch.device 
-            A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
 
     Returns
     -------
@@ -83,34 +91,24 @@ def run_segmentation(config_file, device):
     
     Examples
     --------
-    >>> run_segmentation("template_configs.yaml", device=torch.device("cuda"))
+    >>> run_segmentation("template_configs.yaml")
     Processing Trial 0: Frames from ./data/frames1, Annotations from ./data/annotations1.npy, Masks saving to ./generated_frame_masks1.pkl
     Processing Trial 1: Frames from ./data/frames2, Annotations from ./data/annotations2.npy, Masks saving to ./generated_frame_masks2.pkl
     """
+
     # Load the YAML configuration file
-    # configs = utils.read_config_yaml(config_file)
-    
-    # Retrieve trial count from the length of values provided for each configuration key
-    # trial_count = utils.extract_config_lens(configs)
+    configs = utils.read_config_yaml(config_file)
 
-    # TODO: replace with configs!
-    run_in_parallel = True 
-    num_workers = 3  # Number of worker processes
+    # Ensure all workflow configs are in the proper format
+    configs = utils.workflow_config_check(configs)
 
-    if device == "cuda":
-        device = "cuda:0"
-
-    if run_in_parallel:
-        trial_count = 10
-        configs = {}
-        print(f"Running segmentation for {trial_count} trial(s) in parallel")
-        parallel_segmentation(configs, trial_count, device, num_workers)
+    if configs['run_in_parallel'] and configs['num_workers'] > 1:
+        parallel_segmentation(configs)
     else:
-        print(f"Running segmentation for {trial_count} trial(s)")
-        serial_segmentation(configs, trial_count, device_input)
+        serial_segmentation(configs)
 
     
-def run_video_processing(configs, device):
+def run_video_processing(configs):
     """
     Generates output videos visualizing SAM2 segmentation results for one or more trials.
 
@@ -125,8 +123,6 @@ def run_video_processing(configs, device):
         Path to the YAML configuration file containing video generation settings. 
         Each parameter must either be a single value (applied to all trials) or a list 
         of values with one entry per trial.
-    device : torch.device 
-            A `torch.device` class specifying the device to use to draw the masks.
 
     Returns
     -------
@@ -152,12 +148,15 @@ def run_video_processing(configs, device):
     
     Examples
     --------
-    >>> run_video_processing("template_configs.yaml", device=torch.device("cuda"))
+    >>> run_video_processing("template_configs.yaml")
     Creating video: ./output_trial1.mp4 from ./frames1 and ./generated_frame_masks1.pkl
     Creating video: ./output_trial2.mp4 from ./frames2 and ./generated_frame_masks2.pkl
     """
     # Load the YAML configuration file
     configs = utils.read_config_yaml(configs)
+
+    # Ensure all workflow configs are in the proper format
+    configs = utils.workflow_config_check(configs)
     
     # Retrieve trial count from the length of values provided for each configuration key
     trial_count = utils.extract_config_lens(configs)
@@ -181,5 +180,5 @@ def run_video_processing(configs, device):
             font_size=trial_config["font_size"],
             font_color=trial_config["font_color"],
             alpha=trial_config["alpha"],
-            device=device
+            device=trial_config["device"]
             )

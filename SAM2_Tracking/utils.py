@@ -43,12 +43,56 @@ def lol_check(variable):
     ----------
     variable : any
         The input variable to check. 
+
     Returns
     -------
     bool
         True, if variable is a list of lists, False otherwise.
     """
     return isinstance (variable, list) and all(isinstance(item, list) for item in variable)
+
+
+def workflow_config_check(configs):
+    """"
+    Ensures that all workflow configs are are a singular value
+    and sets `device='cuda:0'`, if `device='cuda'` was provided.  
+    
+    Parameters
+    ----------
+    configs : dict
+        Dictionary of configuration parameters, where each value is either a single value
+        or a list of values representing multiple trials.
+
+    Returns
+    -------
+    configs : dict
+        The same `configs` provided, but with `device='cuda:0'`, if `device='cuda'`
+        was provided. 
+
+    Raises
+    ------
+    ValueError
+        If workflow configuration values are not a singular value, 
+        `num_workers` is not an integer, or `num_workers < 1`. 
+    """
+
+    workflow_params = ['run_in_parallel', 'num_workers', 'sam2_install_dir', 'device']
+
+    for param in workflow_params:
+
+        if isinstance(configs[param], list):
+            raise ValueError(f"Input {param} must be a singular value!")
+
+        if param == 'device' and configs[param] == 'cuda':
+            configs[param] = 'cuda:0'
+
+        if param == 'num_workers': 
+            if not isinstance(configs[param], int):
+                raise ValueError(f"Input {param} must be an integer!")
+            if configs[param] < 1: 
+                raise ValueError(f"Input {param} must be greater than or equal to 1!")
+
+    return configs
 
 def extract_config_lens(configs):
     """
@@ -87,6 +131,7 @@ def extract_config_lens(configs):
     # Get length of provided values for each listed config key as a dictionary 
     config_counts = {key: len(value) for key, value in configs.items() if isinstance(value,list) 
                      and key != "video_frame_size"}
+
     # If multiple video_frame_size trials are provided, add count to config_counts
     if lol_check(configs["video_frame_size"]):
         config_counts["video_frame_size"] = len(configs["video_frame_size"])

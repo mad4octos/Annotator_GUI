@@ -1,5 +1,20 @@
+############################################################
+# Workflow specific configurations                         #
+# Note: all workflow configurations must be a single value #
+############################################################
+
+# Whether to run the workflow in parallel 
+run_in_parallel: True 
+
+# The number of workers used for parallel processing.
+# Value must be an integer. 
+num_workers: 2
+
 # Specifying SAM2 install directory location 
-sam2_install_dir: "/path/to/sam2/sam2/"    
+sam2_install_dir: "/path/to/sam2/sam2/"   
+
+# The Torch device e.g. 'cuda', 'cuda:0', 'cuda:1'
+device: 'cuda'
 
 ######################################################
 # build_sam2_video_predictor specific configurations #
@@ -12,7 +27,7 @@ model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
 non_overlap_masks: False
 
 ########################################
-# annotation specific configurations   #
+# Annotation specific configurations   #
 ########################################
 
 # Directories containing JPGs corresponding to the frames of the video
