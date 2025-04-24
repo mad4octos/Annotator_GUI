@@ -311,10 +311,11 @@ def save_annotations():
     bite_annotations = [
         a for a in annotations if a["ClickType"] == 2
     ]
-    
+    cwd = os.getcwd()
+    msg = f"Current directory is {cwd}. "
     if save_locations_var.get():
         np.save(f"{file_name}_annotations.npy", general_annotations)
-    
+        msg += f"Location annotations saved as '{file_name}_annotation.npy'. "
     if save_bites_var.get():
         with open(f"{file_name}_bites.csv", "w", newline="") as csvfile:
             fieldnames = ["Frame", "ClickType", "ObjID", "ObjType", "Location"]
@@ -328,8 +329,8 @@ def save_annotations():
                     "ObjType": annotation["ObjType"],
                     "Location": annotation["Location"].tolist()
                 })
-    
-    messagebox.showinfo("Save Successful", f"{len(general_annotations)} location annotations saved as '{file_name}_annotations.npy' and {len(bite_annotations)} bites saved as '{file_name}_bites.csv'.")
+        msg += f"Bite annotations saved as '{file_name}_bites.csv'. "
+    messagebox.showinfo("Saved", msg)
 
 # Play Video
 playing_task = None
