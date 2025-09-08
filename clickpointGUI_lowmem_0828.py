@@ -1,4 +1,3 @@
-import time
 import numpy as np
 import cv2
 from tkinter import *
@@ -10,6 +9,7 @@ from PIL import Image, ImageTk
 import csv
 import os
 import pandas as pd
+import os
 
 # Initialize variables
 current_frame_index = [0]
@@ -22,7 +22,7 @@ annotations = []
 video_speed = 1.0  # Playback speed multiplier
 frames = []
 vid_height, vid_width = 0, 0
-fps = 30  # Default FPS, will update dynamically based on video
+fps = 120  # Default FPS, will update dynamically based on video
 out_fps = 3 # Default temporal resolution for SAM2. 
 special_frame_start = 0  # Default starting frame for SAM2
 special_frame_interval = 10  # Default, will calculate dynamically
@@ -38,6 +38,7 @@ root = ctk.CTk()
 root.title("Video Annotation GUI")
 root.geometry("1200x700") #May need to change this line to fit different computer screens
 
+
 # Play and Pause Function
 def pause():
     paused[0] = not paused[0]
@@ -47,31 +48,38 @@ def pause():
 
 # Load Video Function
 def load_video():
-    global frames, vid_height, vid_width, fps, special_frame_interval, video_size_x, video_size_y
-
+    global frames, vid_height, vid_width, fps, special_frame_interval, special_frame_start, video_size_x, video_size_y
+    
+    # Get the latest user-entered value
+    special_frame_start = special_frame_start_var.get()
+    print(f"sam2 start frame is defined as {special_frame_start}")
     file_path = filedialog.askopenfilename(filetypes=[("Video Files", "*.mp4 *.avi")])
     if not file_path:
         return
-
-    cap = cv2.VideoCapture(file_path)
+    # Clear old frames
     frames.clear()
 
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Update FPS dynamically
+    # Open video
+    cap = cv2.VideoCapture(file_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 120  # Update FPS dynamically
     special_frame_interval = max(1, round(fps)/out_fps)  # Calculate interval for SAM2 extracted frames.
 
-    while cap.isOpened():
+    frame_idx = 0
+    while True: 
         ret, frame = cap.read()
-        if ret:
+        if not ret:
+            break
+        if (frame_idx >= special_frame_start) and (frame_idx - special_frame_start) % int(special_frame_interval) == 0:
             frame = cv2.resize(frame, (video_size_x, video_size_y))
             frames.append(frame)
-        else:
-            break
 
-    vid_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    vid_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        frame_idx += 1  
+        
+    vid_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    vid_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     cap.release()
-
-    slider_frame.configure(to=len(frames) - 1)
+    print(f"Loaded {len(frames)} frames at interval {special_frame_interval}")
+    slider_frame.configure(to=len(frames) -1)
     play_video()
 
 # Canvas Click Event
@@ -85,7 +93,7 @@ def canvas_click_events(event):
 def add_annotation():
     ObjID[0] = fish_name.get()
     annotation = {
-        "Frame": current_frame_index[0],
+        "Frame": current_frame_index[0] * special_frame_interval + special_frame_start,
         "ClickType": ClickType[0],
         "ObjID": ObjID[0],
         "ObjType": ObjType[0],
@@ -94,17 +102,16 @@ def add_annotation():
     annotations.append(annotation)
     update_annotation_table()
 
-    print(f"Annotation added for {current_frame_index[0]}.")
-
 #Add Entry Hotkey
 def add_entry(event=None):
     """Adds a new annotation with ClickType=3 and (0,0) location."""
-    global annotations, ObjType, ObjID, current_frame_index, root
+    global annotations, ObjType, ObjID, current_frame_index, special_frame_interval, root
     if root.focus_get() and isinstance(root.focus_get(), (ctk.CTkEntry, Entry)):
         return
     ObjID[0] = fish_name.get()
+    print(special_frame_interval)
     annotation = {
-        "Frame": current_frame_index[0],
+        "Frame": current_frame_index[0] * special_frame_interval + special_frame_start,
         "ClickType": 3,
         "ObjID": ObjID[0],
         "ObjType": ObjType[0],
@@ -122,7 +129,7 @@ def add_exit(event=None):
         return
     ObjID[0] = fish_name.get()
     annotation = {
-        "Frame": current_frame_index[0],
+        "Frame": current_frame_index[0] * special_frame_interval + special_frame_start,
         "ClickType": 4,
         "ObjID": ObjID[0],
         "ObjType": ObjType[0],
@@ -352,7 +359,8 @@ def play_video():
     update_time_display()
 
     current_frame_index[0] += 1
-    playing_task = root.after(int(1000 / (fps * video_speed)), play_video)
+    delay_ms = int(1000 / out_fps * video_speed)
+    playing_task = root.after(delay_ms, play_video)
 
 # Update Frame from Slider
 def update_frame_from_slider(event):
@@ -369,7 +377,7 @@ def update_frame_from_slider(event):
 
 # Update Time Display
 def update_time_display():
-    frame_num = current_frame_index[0]
+    frame_num = current_frame_index[0] * special_frame_interval + special_frame_start
     time_in_seconds = frame_num / fps
     minutes = int(time_in_seconds // 60)
     seconds = int(time_in_seconds % 60)
@@ -395,37 +403,7 @@ def advance_frame(delta):
     label_video.image = photo
     update_time_display()
 
-# Navigate to Next Special Frame
-def next_special_frame():
-    global playing_task
-    if playing_task is not None:
-        root.after_cancel(playing_task)
-    while current_frame_index[0] < len(frames):
-        current_frame_index[0] += 1
-        if (current_frame_index[0] - special_frame_start) % special_frame_interval == 0:
-            break
-    frame_rgb = cv2.cvtColor(frames[current_frame_index[0]], cv2.COLOR_BGR2RGB)
-    image = Image.fromarray(frame_rgb)
-    photo = ImageTk.PhotoImage(image)
-    label_video.configure(image=photo)
-    label_video.image = photo
-    update_time_display()
 
-#Navigate to Previous Special Frame
-def prev_special_frame():
-    global playing_task
-    if playing_task is not None:
-        root.after_cancel(playing_task)
-    while current_frame_index[0] > 0:
-        current_frame_index[0] -= 1
-        if (current_frame_index[0] - special_frame_start) % special_frame_interval == 0:
-            break
-    frame_rgb = cv2.cvtColor(frames[current_frame_index[0]], cv2.COLOR_BGR2RGB)
-    image = Image.fromarray(frame_rgb)
-    photo = ImageTk.PhotoImage(image)
-    label_video.configure(image=photo)
-    label_video.image = photo
-    update_time_display()
     
 # Adjust Playback Speed
 def adjust_speed(delta):
@@ -438,10 +416,19 @@ def reset_speed():
     video_speed = 1.0
     update_time_display()
 
+# Change cursor to a cross-hairs
+def on_mouse_enter(event):
+    # Change cursor to crosshair when mouse enters the video area
+    event.widget.config(cursor="cross")
+
+def on_mouse_leave(event):
+    # Revert to default cursor when mouse leaves
+    event.widget.config(cursor="")
+
 # UI Layout
 root.bind("<Return>", lambda event: add_annotation())
-root.bind("<Left>", lambda event: prev_special_frame())
-root.bind("<Right>", lambda event: next_special_frame())
+root.bind("<Left>", lambda event: advance_frame(-1))
+root.bind("<Right>", lambda event: advance_frame(1))
 # Bind the 'x' key to add an exit annotation
 root.bind("x", lambda event: add_exit())
 
@@ -451,9 +438,7 @@ root.bind("e", lambda event: add_entry())
 frame_controls = ctk.CTkFrame(root)
 frame_controls.pack(side=LEFT, fill=Y, padx=10, pady=10)
 
-button_browse = ctk.CTkButton(frame_controls, text="Browse Video", command=load_video, height = 20)
-button_browse.pack(pady=10)
-
+# Set SAM2 Start Frame BEFORE loading in video
 Label(frame_controls, text="SAM2 Start Frame:").pack(pady=5)
 special_frame_start_var = IntVar(value=0)
 special_frame_entry = ttk.Entry(frame_controls, textvariable=special_frame_start_var)
@@ -465,6 +450,9 @@ def update_special_frame_start():
 
 button_set_special_frame = ctk.CTkButton(frame_controls, text="Set SAM2 Frame", command=update_special_frame_start, height = 20)
 button_set_special_frame.pack(pady=10)
+
+button_browse = ctk.CTkButton(frame_controls, text="Browse Video", command=load_video, height = 20)
+button_browse.pack(pady=10)
 
 button_toggle_click = ctk.CTkButton(frame_controls, text="Positive Click", command=toggle_click_type, height = 20)
 button_toggle_click.pack(pady=5)
@@ -525,22 +513,12 @@ frame_central_controls.pack(side=TOP, fill=X, padx=10, pady=10)
 button_play_pause = ctk.CTkButton(frame_central_controls, text="Pause ||", command=pause, width = 40)
 button_play_pause.pack(pady=5, side=LEFT)
 
-frame_bottom_controls = ctk.CTkFrame(root)
-frame_bottom_controls.pack(side=TOP, fill=X)
-
-button_prev_special_frame = ctk.CTkButton(frame_bottom_controls, text="Prev SAM2 Frame", command=prev_special_frame)
-button_prev_special_frame.pack(side=LEFT, padx=5, pady=5)
-
 button_prev_frame = ctk.CTkButton(frame_central_controls, text="<< Prev Frame", command=lambda: advance_frame(-1), width = 40)
 button_prev_frame.pack(pady=5, side=LEFT)
 
 button_next_frame = ctk.CTkButton(frame_central_controls, text="Next Frame >>", command=lambda: advance_frame(1), width = 40)
 button_next_frame.pack(pady=5, side=LEFT)
 
-
-
-button_next_special_frame = ctk.CTkButton(frame_bottom_controls, text="Next SAM2 Frame", command=next_special_frame)
-button_next_special_frame.pack(side=LEFT, padx=5, pady=5)
 
 button_decrease_speed = ctk.CTkButton(frame_central_controls, text="- Speed", command=lambda: adjust_speed(-0.1), width = 40)
 button_decrease_speed.pack(pady=5, side=LEFT)
@@ -554,9 +532,14 @@ button_reset_speed.pack(pady=5, side=LEFT)
 frame_video = ctk.CTkFrame(root)
 frame_video.pack(side=LEFT, fill=BOTH, expand=True, padx=10, pady=10)
 
+# Create video player
 label_video = ctk.CTkLabel(frame_video, text="")  # Remove CTkLabel watermark
 label_video.pack(padx=10, pady=10)
+# Bind the click event
 label_video.bind('<Button-1>', canvas_click_events)
+# Bind cursor change events
+label_video.bind("<Enter>", on_mouse_enter)
+label_video.bind("<Leave>", on_mouse_leave)
 
 slider_frame = ttk.Scale(frame_video, from_=0, to=0, orient=HORIZONTAL, length=video_size_x)
 slider_frame.pack(pady=10)
