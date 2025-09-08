@@ -24,8 +24,17 @@ mamba env create -f GUI_environment.yaml
 To launch the GUI, you should first activate the GUI environment with the necessary dependencies: 
 ```
 mamba activate annotate-env
-python3 LocalAnnotationBitesGUI_0226.py
 ```
+Then, depending on your project, launch either the `clickpointGUI.py` or the `clickpointGUI_lowmem.py`. The lowmem version only loads the frames subsampled for SAM2 tracking (default is 3fps) and thus requires less memory and time to load a video. If the only purpose for the GUI is SAM2 tracking, then the lowmem version should be used. If clickpoints for other events (e.g., bites) are required at a higher resolution, then the clickpointGUI.py must be used. 
+To launch the GUI, use either:
+```
+python3 clickpointGUI.py
+```
+or 
+```
+python3 clickpointGUI_lowmem.py
+```
+
 This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. Depending on the file size, the video may take a few minutes to load during which Python will show `Application not responding` - this is normal, do not exit the GUI. 
 
 Once the video loads, you can use the player control buttons to pause and play the video, adjust the playback rate, and move frame-by frame. There is a scroll bar beneath the video player that can be used to move to a different time. The arrow keys can also be used to quickly advance or move backward frames. 
