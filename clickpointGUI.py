@@ -21,17 +21,18 @@ paused = [False]
 annotations = []
 video_speed = 1.0  # Playback speed multiplier
 frames = []
-vid_height, vid_width = 0, 0
 fps = 30  # Default FPS, will update dynamically based on video
 out_fps = 3 # Default temporal resolution for SAM2. 
 special_frame_start = 0  # Default starting frame for SAM2
 special_frame_interval = 10  # Default, will calculate dynamically
 ObjType = ["Parrotfish"]  # Default fish family
+orig_vid_width, orig_vid_height = 0, 0
+aspect_ratio = 1.78
 
 
-#Define video player size. Should be x = y * 1.5
+#Define video player sizes. Should be x = y * 1.5
 video_size_x=600
-video_size_y=400
+video_size_y = 0
 
 # Create the main window
 root = ctk.CTk()
@@ -47,7 +48,9 @@ def pause():
 
 # Load Video Function
 def load_video():
-    global frames, vid_height, vid_width, fps, special_frame_interval, video_size_x, video_size_y
+    global frames, orig_vid_height, orig_vid_width, aspect_ratio
+    global fps, special_frame_interval
+    global video_size_x, video_size_y
 
     file_path = filedialog.askopenfilename(filetypes=[("Video Files", "*.mp4 *.avi")])
     if not file_path:
@@ -58,29 +61,92 @@ def load_video():
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Update FPS dynamically
     special_frame_interval = max(1, round(fps)/out_fps)  # Calculate interval for SAM2 extracted frames.
+   
+    orig_vid_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_vid_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
+    aspect_ratio = orig_vid_width/orig_vid_height
+    video_size_y = int(video_size_x/aspect_ratio)
+
+ 
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
-            frame = cv2.resize(frame, (video_size_x, video_size_y))
+            #frame = cv2.resize(frame, (video_size_x, video_size_y))
             frames.append(frame)
         else:
             break
-
-    vid_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    vid_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     cap.release()
-
+    update_frame_display()
     slider_frame.configure(to=len(frames) - 1)
     play_video()
 
+def update_frame_display():
+    """Resize current frame to video_size_x/y and display it in the label."""
+    if not frames:
+        return
+    frame = frames[current_frame_index[0]]
+    resized = cv2.resize(frame, (video_size_x, video_size_y))
+    frame_rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+    photo = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
+
+    label_video.configure(image=photo)
+    label_video.image = photo
+
+def on_slider_change(value):
+    global video_size_x, video_size_y
+    video_size_x = int(float(value)) 
+    video_size_y = int(video_size_x / aspect_ratio)
+    update_frame_display()
+
 # Canvas Click Event
 def canvas_click_events(event):
-    x_coord = (vid_width / video_size_x) * event.x
-    y_coord = (vid_height / video_size_y) * event.y
-    xLocation[0] = x_coord
-    yLocation[0] = y_coord
+    global orig_vid_height, orig_vid_width
+    widget = event.widget
 
+    widget_w = widget.winfo_width()
+    widget_h = widget.winfo_height()
+
+    # Get the PhotoImage that is currently assigned 
+    tk_image_name = widget.cget("image")
+    if not tk_image_name:
+        print("no image currently displayed")
+        return
+    
+    # Use 
+    try:
+        disp_w = int(widget.tk.call("image", "width", tk_image_name))
+        disp_h = int(widget.tk.call("image", "height", tk_image_name))
+        #print(f"Resolved displayed size from tk widget: ({disp_w}, {disp_h})")
+    except Exception:
+        print("Could not resolve image handle, fallback to stored video_size_x/y")
+        disp_w = float(video_size_x)
+        disp_h = float(video_size_y)
+
+
+    # Comput offsets if video is centered inside widget
+    offset_x = (widget_w - disp_w) / 2.0
+    offset_y = (widget_h - disp_h) / 2.0
+
+    # coords inside the image, not the widget
+    x_in_image = event.x - offset_x
+    y_in_image = event.y - offset_y
+
+    # Ignore clicks outside of image
+    if x_in_image < 0 or x_in_image >= disp_w or y_in_image < 0 or y_in_image>= disp_h:
+        print("Click outside displayed image area. Try again.")
+        return
+    
+    orig_x = x_in_image * (orig_vid_width / disp_w) 
+    orig_y = y_in_image * (orig_vid_height / disp_h)
+
+    xLocation[0] = orig_x
+    yLocation[0] = orig_y
+    #print(f"widget:({widget_w:.0f},{widget_h:.0f}) img:({disp_w:.0f},{disp_h:.0f}) "
+     #     f"offset:({offset_x:.1f},{offset_y:.1f}) "
+    #      f"click:({event.x},{event.y}) -> image:({x_in_image:.1f},{y_in_image:.1f}) "
+    #      f"-> original:({orig_x:.2f},{orig_y:.2f})")   
+    
 # Add Annotation Function
 def add_annotation():
     ObjID[0] = fish_name.get()
@@ -349,6 +415,7 @@ def play_video():
     label_video.image = photo
 
     slider_frame.set(current_frame_index[0])
+    update_frame_display()
     update_time_display()
 
     current_frame_index[0] += 1
@@ -366,6 +433,7 @@ def update_frame_from_slider(event):
     label_video.configure(image=photo)
     label_video.image = photo
     update_time_display()
+    update_frame_display()
 
 # Update Time Display
 def update_time_display():
@@ -394,6 +462,7 @@ def advance_frame(delta):
     label_video.configure(image=photo)
     label_video.image = photo
     update_time_display()
+    update_frame_display()
 
 # Navigate to Next Special Frame
 def next_special_frame():
@@ -410,6 +479,7 @@ def next_special_frame():
     label_video.configure(image=photo)
     label_video.image = photo
     update_time_display()
+    update_frame_display()
 
 #Navigate to Previous Special Frame
 def prev_special_frame():
@@ -426,6 +496,7 @@ def prev_special_frame():
     label_video.configure(image=photo)
     label_video.image = photo
     update_time_display()
+    update_frame_display()
     
 # Adjust Playback Speed
 def adjust_speed(delta):
@@ -563,9 +634,12 @@ button_reset_speed.pack(pady=5, side=LEFT)
 frame_video = ctk.CTkFrame(root)
 frame_video.pack(side=LEFT, fill=BOTH, expand=True, padx=10, pady=10)
 
+slider = ctk.CTkSlider(frame_bottom_controls, from_=300, to=1600,number_of_steps=100, command=on_slider_change)
+slider.set(video_size_x)
+slider.pack(side="left", fill = "x", expand = True, padx=5,pady=5)
 # Create video player
 label_video = ctk.CTkLabel(frame_video, text="")  # Remove CTkLabel watermark
-label_video.pack(padx=10, pady=10)
+label_video.pack(padx=0, pady=0)
 # Bind the click event
 label_video.bind('<Button-1>', canvas_click_events)
 # Bind cursor change events
