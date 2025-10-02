@@ -3,6 +3,7 @@ import glob
 import numpy as np  
 import os  
 import plot_utils
+import torch
 from torchvision.io import decode_image
 from torchvision.utils import draw_segmentation_masks
 from torchvision import transforms
@@ -13,7 +14,11 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd 
 import pickle
+import warnings
 from sam2_fish_segmenter import SAM2FishSegmenter
+
+
+
 
 def read_config_yaml(config_path):
     """
@@ -35,7 +40,183 @@ def read_config_yaml(config_path):
         config = yaml.safe_load(file)  # safe_load avoids arbitrary code execution
 
     return config
+    
+def check_configs(config_path, device):
+    """
+    Checks that the configurations are correct and won't raise errors. 
+    
+    Parameters
+    ----------
+    config_path : str
+        The full path to the configuration file
+    device : torch.device 
+        A `torch.device` class specifying the device to use for `build_sam2_video_predictor`
+    
+    Returns
+    -------
+    Warnings if the data is not consistent or compatible with SAM2 processing
+    Prints the number of frames provided for each trial and total frames to process
+    
+    """
+    # Read in configuration YAML
+    if isinstance(config_path, str): 
+        # Read and load the configuration YAML
+        configs = read_config_yaml(config_path)
+    elif isinstance(config_path, dict):
+        # Set class variable configs to the provided dict
+        configs = config_path
+    else:
+        raise TypeError("configs was not a str or dict!")
+    
+    # Check appropriate device for SAM2
+    if device.type == "cuda":
+            torch.autocast("cuda", dtype=torch.bfloat16).__enter__()
+            if torch.cuda.get_device_properties(0).major >= 8:
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+    else:
+        warnings.warn(f"Device of type {device.type} not supported!")  
+    
+    # Check appropriate variables are strings
+    required_str_keys = ["sam2_install_dir", "model_cfg", "frame_dir", "annotations_file", 
+    "frame_idx_name", "obj_id_name", "points_name","labels_name", "masks_dict_file", "video_file",
+    "font_color"]
+    for key in required_str_keys:
+        val = configs.get(key)
+        vil = val if isinstance(val, list) else [val]
+        
+        for v in vil:
+            if not isinstance(v, str):
+                warnings.warn(
+                    f"Config parameter '{key}' contains a non-string value: {v!r}")
+    
+    # Check that provided paths exist
+    path_keys = ["sam2_install_dir", "frame_dir", "annotations_file"]
+    for key in path_keys:
+        val = configs.get(key)
+        
+        # normalize to list of paths
+        paths = val if isinstance(val, list) else [val]
+        
+        for p in paths:
+            if not isinstance(p, str):
+                warnings.warn(f"Config parameter '{key}' contains a non-string value: {p!r}")
+                continue
+            if not os.path.exists(p):
+                warnings.warn(f"Path in '{key}' does not exist: {p}")
+    
+    # Check for mismatches in provided configuration lengths    
+    trials = extract_config_lens(configs)
+    print(f"There are {trials} trials provided for SAM2 processing")
+    
+    # Check for duplicates
+    for key, val in configs.items():
+        if isinstance(val, list):
+            if len(val) != len(set(val)):
+                warnings.warn(f"Config parameter '{key}' contains duplicates: {val}")
+    
+    # Check that annotation dictionary keys match the provided labels
+    label_keys = ["frame_idx_name", "obj_id_name", "points_name", "labels_name"]
+    
+    ann_files = configs.get("annotations_file")
+    ann_files = ann_files if isinstance(ann_files, list) else [ann_files]
+    expanded_labels = {
+    k: ensure_list(configs.get(k), len(ann_files)) for k in label_keys
+}
 
+    # Now check each file against its expected label names
+    for i, ann_file in enumerate(ann_files):
+        try:
+            ann_data = np.load(ann_file, allow_pickle=True)  # ndarray of dicts
+        except Exception as e:
+            warnings.warn(f"Failed to load annotation file '{ann_file}': {e}")
+            continue
+            
+        # Union of all keys across entries in this annotation file
+        available_keys = set()
+        for entry in ann_data:
+            if isinstance(entry, dict):
+                available_keys.update(entry.keys())
+
+        for k in label_keys:
+            expected_label = expanded_labels[k][i]
+            if expected_label not in available_keys:
+                warnings.warn(
+                    f"In file '{ann_file}': expected label '{expected_label}' "
+                    f"from config key '{k}' not found. Available keys include: {sorted(available_keys)}"
+                )
+        
+        # Convert ann_data (array of dicts) into DataFrame
+        df = pd.DataFrame(list(ann_data))
+        frame_col = expanded_labels["frame_idx_name"][i]
+        obj_col = expanded_labels["obj_id_name"][i]
+        clicktype_col = expanded_labels["labels_name"][i]
+        #get_frame_chunks_df(df, obj_id_name, frame_idx_name, labels_name)
+        
+        # Check annotations provides chunks with an entry, exit, and at least one position  
+        check_frame_df(df = df, obj_name=obj_col, frame_name=frame_col, click_type_name=clicktype_col)
+
+    
+    # Print the total number of frames 
+    frame_dirs = configs.get("frame_dir")
+    dirs = frame_dirs if isinstance(frame_dirs, list) else [frame_dirs]
+    
+    total_frames = 0
+    for d in dirs: 
+        if not isinstance(d,str) or not os.path.isdir(d):
+            print(f"Skipping invalid frame_dir:{d}")
+            continue
+        frame_count = sum(
+            1 for f in os.listdir(d)
+            if os.path.isfile(os.path.join(d,f))
+        )
+        print(f"{frame_count} frames found in {d}")
+        total_frames += frame_count
+    print(f"Total frames across all frame_dir paths: {total_frames}")
+        
+
+def check_frame_df(df=None, obj_name=None, frame_name=None, click_type_name=None):
+    # Get entry frames
+    enter_frame = df[df[click_type_name] == 3][[obj_name, frame_name]].astype(int)
+    enter_frame = enter_frame.sort_values(by=[obj_name, frame_name], ascending=True)
+    
+    # Get exit frames
+    exit_frame = df[df[click_type_name] == 4][[obj_name, frame_name]].astype(int)
+    exit_frame = exit_frame.sort_values(by=[obj_name, frame_name], ascending=True)
+    
+    # Ensure same number of entries/exits and matching object IDs
+    if (enter_frame.shape != exit_frame.shape) or \
+       (not np.array_equal(enter_frame[obj_name].values, exit_frame[obj_name].values)):
+        warnings.warn(f"A {obj_name} does not have both an enter and exit point!", UserWarning)
+
+    # Get positional annotation frames
+    position_frame = df[df[click_type_name] == 1][[obj_name, frame_name]].astype(int)
+    position_frame = position_frame.sort_values(by=[obj_name, frame_name], ascending=True)
+
+    # Check that each entry–exit range has at least one positional annotation
+    for obj in enter_frame[obj_name].unique():
+        obj_enters = enter_frame[enter_frame[obj_name] == obj][frame_name].values
+        obj_exits = exit_frame[exit_frame[obj_name] == obj][frame_name].values
+        obj_positions = position_frame[position_frame[obj_name] == obj][frame_name].values
+
+        for enter, exit in zip(obj_enters, obj_exits):
+            if not np.any((obj_positions >= enter) & (obj_positions <= exit)):
+                warnings.warn(
+                    f"Object {obj} has no positional annotation between entry {enter} and exit {exit}", UserWarning
+                )
+
+def ensure_list(val, length):
+    """Broadcast single value into a list of given length."""
+    if isinstance(val, list):
+        if len(val) != length:
+            warnings.warn(
+                f"Value list length mismatch: expected {length}, got {len(val)}"
+            )
+        return val
+    else:
+        return [val] * length
+        
+        
 def lol_check(variable):
     """"
     Reads in a variable and checks if it is a list of lists (lol).

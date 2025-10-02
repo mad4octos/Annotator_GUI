@@ -25,27 +25,32 @@ To launch the GUI, you should first activate the GUI environment with the necess
 ```
 mamba activate annotate-env
 ```
-Then, depending on your project, launch either the `clickpointGUI.py` or the `clickpointGUI_lowmem.py`. The lowmem version only loads the frames subsampled for SAM2 tracking (default is 3fps) and thus requires less memory and time to load a video. If the only purpose for the GUI is SAM2 tracking, then the lowmem version should be used. If clickpoints for other events (e.g., bites) are required at a higher resolution, then the clickpointGUI.py must be used. 
-To launch the GUI, use either:
+
+To launch the GUI, run:
 ```
-python3 clickpointGUI.py
-```
-or 
-```
-python3 clickpointGUI_lowmem.py
+python3 clickpointGUI_0929.py
 ```
 
-This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. Depending on the file size, the video may take a few minutes to load during which Python will show `Application not responding` - this is normal, do not exit the GUI. 
 
-Once the video loads, you can use the player control buttons to pause and play the video, adjust the playback rate, and move frame-by frame. There is a scroll bar beneath the video player that can be used to move to a different time. The arrow keys can also be used to quickly advance or move backward frames. 
-The current time, current frame, and playback speed are shown at the top of the right panel. 
 
+This will pull up the GUI window. Use the __Browse Video__ button to select the video you wish to annotate. The default frame cache size is 50 frames, meaning that only 50 frames will be loaded at a time. This can be adjusted in the script by changing `frame_cache_size`. A higher frame cache will result in smoother playback but higher memory demand. 
+
+Once the video loads, you can use the player control buttons to pause and play the video, adjust the playback rate, and move frame-by frame. There is a scroll bar beneath the video player that can be used to move to a different time. The current time, current frame, and playback speed are shown below the video player.
+
+### Hot Keys: 
+
+The arrow keys can also be used to quickly advance or move backward to the nearest SAM2 frame. The "." and "," keys can be used to move forward and backward a single frame at a time. The spacebar can be used to pause-play the video. The mouse wheel can be used to zoom in and out in the video. The "a", "s", "w", "d" keys can be used to pan left, right, up, and down in the zoomed video player window. The Enter button can be used to add an annotation. 
+
+> [!NOTE] 
+> The hotkeys cannot be used if the cursor is within any of the textboxes. Click on the annotation table to enable use of the hotkeys, rather than typing in the textbox. 
+
+ 
 ### SAM2 Start Frame
 
 The SAM2 Start Frame is a function for ensuring that the annotated frames correspond with the frames extracted for SAM2. The SAM2 Start Frame specifies which frame to begin counting at, then will display a message "SAM2 Frame: Annotate Fish Position" on the 3 frames per second that will be processed by SAM2.
 > [!Note] 
 > It is the default assumption that frames will be extracted from the raw video at 3 FPS. 
-> If a different temporal resolution is desired, line 26 of `LocalAnnotationBitesGUI_0226.py` can be edited to change `3`to your desired extraction frame rate. 
+> If a different temporal resolution is desired, line 25 of `clickpointGUI_0929.py` can be edited to change `3`to your desired extraction frame rate. 
 As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos where left-right video syncing has already been completed or is not necessary. 
 
 ### Click Types
@@ -53,6 +58,8 @@ As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos whe
 Positive click types should be used to mark where the object is located. Typically, only one positive click is necessary to segment a well-contrasted object.
 
 Negative click types can be used to mark where the object is __not__ located. Typically, these should only be used when correcting SAM2 mask outputs, because they can confuse SAM2 and impair performance if used too much. 
+> [!NOTE]
+> WE have not found negative clickpoints to be useful in improving SAM2 performance.
 
 Bite clicks can be used to mark the location of bites, or any other discrete behavioral event. 
 
@@ -155,7 +162,7 @@ The main SAM2 workflow must be run on a machine with GPU access.
 
 A folder should be set up containing the `annotations.npy` file, the `frames` subfolder, and the necessary scripts for the SAM2 workflow: `main.py`, `sam2_fish_segmenter.py`, `template_configs.yaml`, `utils.py`, and `plot_utils.py`. All these files can be obtained from the repo's `SAM2_Tracking` directory. In the future, we will make this a Python package, so that transferring files is not necessary. 
 
-The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the name of the annotations NumPy file. 
+The `template_configs.yaml` file should be edited to specify the paths to the SAM2 installation and provided checkpoints, the FPS of the original video that was annotated in the GUI, the `SAM2_start` frame that was used in both the GUI and the Extract Frames step, and the paths to the the annotations NumPy file and folder of frames for each trial. 
 
 Lines 41 - 51 specify the key used in the annotations file created by the GUI. The most recent GUI uses different labels than previous versions and these may need to be altered:
 ```
@@ -243,13 +250,18 @@ For every trial to be fully processed and visualized, a name for `frame_dir`, `a
 > If multiple values are not specified for the `masks_dict_file` and `video_file`, 
 > the SAM2 outputs from multiple trials will overwrite each other. 
 
-After adjusting the `template_configs.yaml` to specify all trials to be processed, the SAM2 processing and video creation can be run as normal:
+After adjusting the `template_configs.yaml` to specify all trials to be processed, use the `check_data.py` script to confirm that all your configurations are correct and compatible with SAM2 processing. 
 ```
 cd path/to/working/directory
 
 mamba activate sam2-env
+python3 check_data.py
+```
+
+If there are no warnings, the SAM2 processing and video creation can be run as normal:
+```
 python3 main.py
 python3 create_video.py
 ```
 
-Please raise an issue or contact M. Hair if you experience issues using this code. 
+Please raise an issue or contact M. Hair (madelyn.hair@colorado.edu) if you experience issues using this code. 
