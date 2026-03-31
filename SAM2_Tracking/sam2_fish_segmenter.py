@@ -208,9 +208,28 @@ class SAM2FishSegmenter:
 
             # There's an extra dimension (1) to the masks, remove it
             bool_masks = bool_masks.squeeze(1)
-
-            # Convert mask tensor to sparse format and store it
-            for obj_id in out_obj_ids:
+            
+            # Iterate over each predicted object mask
+            for i, obj_id in enumerate(out_obj_ids):
+                # get single mask for this object
+                mask = bool_masks[i]
+                
+                # Check Mask Size:
+                mask_area = mask.sum().item() # Number of True pixels
+                total_area = mask.numel()
+                frac_area = mask_area/total_area
+                
+                # skip saving this mask if it covers > 25% of the frame
+                if frac_area > 0.25:
+                    print(f"[Warning] Mask for obj_id = {obj_id} at frame = {out_frame_idx} "
+                    f"covers {frac_area:.2%} of frame - skipping propagation.")
+                    
+                    # Create an empty sparse mask to preserve frame indexing
+                    empty_mask = torch.zeros_like(mask, dtype=torch.bool).to_sparse().cpu()
+                    frame_masks[out_frame_idx][obj_id] = empty_mask
+                    continue
+                    
+                # Convert remaining mask tensor to sparse format and store it
                 frame_masks[out_frame_idx][obj_id] = bool_masks.to_sparse().cpu()
 
         return frame_masks

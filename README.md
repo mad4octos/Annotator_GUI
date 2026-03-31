@@ -28,7 +28,7 @@ mamba activate annotate-env
 
 To launch the GUI, run:
 ```
-python3 clickpointGUI_0929.py
+python3 clickpointGUI_1105.py
 ```
 
 
@@ -50,7 +50,7 @@ The arrow keys can also be used to quickly advance or move backward to the neare
 The SAM2 Start Frame is a function for ensuring that the annotated frames correspond with the frames extracted for SAM2. The SAM2 Start Frame specifies which frame to begin counting at, then will display a message "SAM2 Frame: Annotate Fish Position" on the 3 frames per second that will be processed by SAM2.
 > [!Note] 
 > It is the default assumption that frames will be extracted from the raw video at 3 FPS. 
-> If a different temporal resolution is desired, line 25 of `clickpointGUI_0929.py` can be edited to change `3`to your desired extraction frame rate. 
+> If a different temporal resolution is desired, line 25 of `clickpointGUI_1105.py` can be edited to change `3`to your desired extraction frame rate. 
 As a default, the SAM2 Start Frame will be 0, and can remain as 0 for videos where left-right video syncing has already been completed or is not necessary. 
 
 ### Click Types
@@ -263,5 +263,8 @@ If there are no warnings, the SAM2 processing and video creation can be run as n
 python3 main.py
 python3 create_video.py
 ```
+
+Note: The code will skip SAM2 propagation of masks that cover >25% of the frame.
+This can be adjusted in the SAM2_Tracking/sam2_fish_segmenter.py if desired. 
 
 Please raise an issue or contact M. Hair (madelyn.hair@colorado.edu) if you experience issues using this code. 

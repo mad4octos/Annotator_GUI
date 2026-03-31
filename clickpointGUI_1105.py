@@ -50,6 +50,8 @@ def pause():
         return
     paused[0] = not paused[0]
     button_play_pause.configure(text="Pause ||" if not paused[0] else "Play ▶")
+    update_time_display()
+    update_frame_display()
     if not paused[0]:
         play_video()
 
@@ -472,7 +474,7 @@ def import_annotations():
         
         #Case 2: Load .csv file
         elif file_extension == ".csv":
-            imported_annotations = pd.read_csv(file_path)
+            imported_annotations = pd.read_csv(file_path, dtype={"ObjID": str})
 
             #check if the necessary columns are in the .csv
             required_columns = ["Frame", "ClickType", "ObjID", "ObjType", "Location"]
@@ -487,7 +489,7 @@ def import_annotations():
                 annotation = {
                     "Frame": int(row["Frame"]),
                     "ClickType": row["ClickType"],
-                    "ObjID": row["ObjID"],
+                    "ObjID": row["ObjID"], # This line needs imported differently to keep the '' around ObjID
                     "ObjType": row["ObjType"],
                     "Location": np.array(location)
                 }
@@ -506,7 +508,7 @@ def import_annotations():
         # Handle any errors (e.g., file not found, invalid format, etc.)
         messagebox.showerror("Error", f"An error occurred while importing annotations: {str(e)}")
 
-def check_annotations():
+def check_chunks():
     """
     Checks that for every ObjID in annotations, the number of entries and exits are equal.
     If a mismatch is found, a warning is shown and the user can choose to continue or go back.
@@ -541,14 +543,38 @@ def check_annotations():
         
     return True
 
+def check_SAM2_frames():
+    mismatches=[]
+    for annotation in annotations:
+        click = annotation.get("ClickType")
+        if click == 1 or click == 0:
+            frame = annotation.get("Frame")
+            if (frame - special_frame_start) % special_frame_interval == 0:
+                continue
+            else:
+                mismatches.append(
+                    f"Frame {frame} is not a SAM2 frame."
+                )
+    if mismatches:
+        message = (
+            "The following non-SAM2 frames were marked for positions:\n\n"
+            + "\n".join(mismatches)
+            + "\n\nDo you want to continue anyways?"
+        )
+        if not messagebox.askyesno("Annotation Mismatch", message):
+            # User chose to go back
+            return False
+    return True
 
 # Save Annotations Function
 def save_annotations():
     # First, check for any entry/exit mismatches
-    if not check_annotations():
-        print("Check annotations: user chose to go back.")
+    if not check_chunks():
+        print("Check entries/exits: user chose to go back.")
         return # User chose to go back, do not proceed with saving
-
+    if not check_SAM2_frames():
+        print("Check frames: user chose to go back")
+        return # Do not proceed with saving
     print("No mismatches; proceeding to save annotations.")
 
     file_name = file_name_var.get().strip() or "annotations"  # Default name if none provided
@@ -803,8 +829,8 @@ frame_main.pack(side=TOP, fill=BOTH, expand=True)
 frame_controls = ctk.CTkFrame(frame_main)
 frame_controls.pack(side=LEFT, fill=Y, padx=5, pady=5)
 
-button_browse = ctk.CTkButton(frame_controls, text="Browse Video", command=load_video, height = 20)
-button_browse.pack(pady=10)
+button_browse = ctk.CTkButton(frame_controls, text="Browse Video", command=load_video, height = 15)
+button_browse.pack(pady=5)
 
 Label(frame_controls, text="SAM2 Start Frame:").pack(pady=5)
 special_frame_start_var = IntVar(value=0)
@@ -815,16 +841,16 @@ def update_special_frame_start():
     global special_frame_start
     special_frame_start = special_frame_start_var.get()
 
-button_set_special_frame = ctk.CTkButton(frame_controls, text="Set SAM2 Frame", command=update_special_frame_start, height = 20)
-button_set_special_frame.pack(pady=10)
+button_set_special_frame = ctk.CTkButton(frame_controls, text="Set SAM2 Frame", command=update_special_frame_start, height = 15)
+button_set_special_frame.pack(pady=5)
 
-button_toggle_click = ctk.CTkButton(frame_controls, text="Positive Click", command=toggle_click_type, height = 20)
+button_toggle_click = ctk.CTkButton(frame_controls, text="Positive Click", command=toggle_click_type, height = 15)
 button_toggle_click.pack(pady=5)
 
 button_toggle_obj_type = ctk.CTkButton(
     frame_controls,
     text="Parrotfish",
-    command=toggle_obj_type, height = 20
+    command=toggle_obj_type, height = 15
 )
 button_toggle_obj_type.pack(pady=5)
 
@@ -834,31 +860,31 @@ entry_fish_name = ttk.Entry(frame_controls, textvariable=fish_name)
 entry_fish_name.pack(pady=5)
 
 
-button_add_annotation = ctk.CTkButton(frame_controls, text="Add Annotation ('Return')", command=add_annotation, height = 20)
+button_add_annotation = ctk.CTkButton(frame_controls, text="Add Annotation ('Return')", command=add_annotation, height = 15)
 button_add_annotation.pack(pady=5)
 
-button_add_entry = ctk.CTkButton(frame_controls, text="Add Entry ('i')", command=add_entry, height = 20)
+button_add_entry = ctk.CTkButton(frame_controls, text="Add Entry ('i')", command=add_entry, height = 15)
 button_add_entry.pack(pady=5)
 
-button_add_exit = ctk.CTkButton(frame_controls, text="Add Exit ('o')", command=add_exit, height = 20)
+button_add_exit = ctk.CTkButton(frame_controls, text="Add Exit ('o')", command=add_exit, height = 15)
 button_add_exit.pack(pady=5)
 
-button_edit_selected = ctk.CTkButton(frame_controls, text="Edit Selected", command=edit_selected, height = 20)
-button_edit_selected.pack(pady=10)
+button_edit_selected = ctk.CTkButton(frame_controls, text="Edit Selected", command=edit_selected, height = 15)
+button_edit_selected.pack(pady=5)
 
-button_delete_selected = ctk.CTkButton(frame_controls, text="Delete Selected", command=delete_selected, height = 20)
-button_delete_selected.pack(pady=10)
+button_delete_selected = ctk.CTkButton(frame_controls, text="Delete Selected", command=delete_selected, height = 15)
+button_delete_selected.pack(pady=5)
 
-button_delete_all = ctk.CTkButton(frame_controls, text="Delete All", command=delete_all, height = 20)
+button_delete_all = ctk.CTkButton(frame_controls, text="Delete All", command=delete_all, height = 15)
 button_delete_all.pack(pady=5)
 
-button_import = ctk.CTkButton(frame_controls, text="Import Previous Annotations", command=import_annotations, height = 20)
+button_import = ctk.CTkButton(frame_controls, text="Import Previous Annotations", command=import_annotations, height = 15)
 button_import.pack(pady=5)
 
-Label(frame_controls, text="Saving File Name:").pack(pady=5)
+Label(frame_controls, text="Saving File Name:").pack(pady=0)
 file_name_var = StringVar()
 entry_file_name = ttk.Entry(frame_controls, textvariable=file_name_var)
-entry_file_name.pack(pady=5)
+entry_file_name.pack(pady=0)
 
 # Checkboxes for saving options
 save_bites_var = BooleanVar(value=False)
@@ -874,7 +900,7 @@ checkbox_locations.pack()
 checkbox_all = ctk.CTkCheckBox(frame_controls, text="Save Eels", variable=save_all_var)
 checkbox_all.pack()
 
-button_save_annotations = ctk.CTkButton(frame_controls, text="Save Annotations", command=save_annotations, height = 20)
+button_save_annotations = ctk.CTkButton(frame_controls, text="Save Annotations", command=save_annotations, height = 15)
 button_save_annotations.pack(pady=5)
 
 
@@ -883,31 +909,31 @@ frame_center = ctk.CTkFrame(frame_main)
 frame_center.pack(side=LEFT, fill=BOTH, expand=True, padx=5,pady=5)
 # Playback controls at top of center frame
 frame_central_controls = ctk.CTkFrame(frame_center)
-frame_central_controls.pack(side=TOP, fill=X, padx=10, pady=10)
+frame_central_controls.pack(side=TOP, fill=X, padx=5, pady=5)
 
-button_play_pause = ctk.CTkButton(frame_central_controls, text="Pause ||", command=pause, width = 40)
+button_play_pause = ctk.CTkButton(frame_central_controls, text="Pause ||", command=pause, width = 30)
 button_play_pause.pack(pady=5, side=LEFT)
 
-button_prev_special_frame = ctk.CTkButton(frame_central_controls, text="Prev SAM2 Frame", command=prev_special_frame)
+button_prev_special_frame = ctk.CTkButton(frame_central_controls, text="Prev SAM2 Frame", command=prev_special_frame, width = 30)
 button_prev_special_frame.pack(side=LEFT, padx=5, pady=5)
 
-button_prev_frame = ctk.CTkButton(frame_central_controls, text="<< Prev Frame", command=lambda: advance_frame(-1), width = 40)
+button_prev_frame = ctk.CTkButton(frame_central_controls, text="<< Prev Frame", command=lambda: advance_frame(-1), width = 30)
 button_prev_frame.pack(pady=5, side=LEFT)
 
-button_next_frame = ctk.CTkButton(frame_central_controls, text="Next Frame >>", command=lambda: advance_frame(1), width = 40)
+button_next_frame = ctk.CTkButton(frame_central_controls, text="Next Frame >>", command=lambda: advance_frame(1), width = 30)
 button_next_frame.pack(pady=5, side=LEFT)
 
 
-button_next_special_frame = ctk.CTkButton(frame_central_controls, text="Next SAM2 Frame", command=next_special_frame)
+button_next_special_frame = ctk.CTkButton(frame_central_controls, text="Next SAM2 Frame", command=next_special_frame, width = 30)
 button_next_special_frame.pack(side=LEFT, padx=5, pady=5)
 
-button_decrease_speed = ctk.CTkButton(frame_central_controls, text="- Speed", command=lambda: adjust_speed(-0.1), width = 40)
+button_decrease_speed = ctk.CTkButton(frame_central_controls, text="- Speed", command=lambda: adjust_speed(-0.1), width = 30)
 button_decrease_speed.pack(pady=5, side=LEFT)
 
-button_increase_speed = ctk.CTkButton(frame_central_controls, text="+ Speed", command=lambda: adjust_speed(0.1), width = 40)
+button_increase_speed = ctk.CTkButton(frame_central_controls, text="+ Speed", command=lambda: adjust_speed(0.1), width = 30)
 button_increase_speed.pack(pady=5, side=LEFT)
 
-button_reset_speed = ctk.CTkButton(frame_central_controls, text="Reset Speed", command=reset_speed, width = 40)
+button_reset_speed = ctk.CTkButton(frame_central_controls, text="Reset Speed", command=reset_speed, width = 30)
 button_reset_speed.pack(pady=5, side=LEFT)
 
 
