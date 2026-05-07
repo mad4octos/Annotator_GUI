@@ -125,10 +125,7 @@ pip install -r herbfishCV/requirements.txt
 Set `PYTHONPATH` at the start of each shell session before running the scripts:
 
 ```bash
-export PYTHONPATH=/path/to/herbfishCV        # Linux / macOS
-```
-```powershell
-$env:PYTHONPATH = "C:\path\to\herbfishCV"   # Windows (PowerShell)
+export PYTHONPATH="/path/to/herbfishCV:/path/to/herbfishCV/scripts"
 ```
 
 ---
@@ -179,7 +176,7 @@ python prepare_train_dataset.py \
 
 Convert tracker `.pkl` predictions to COCO JSON, GT and predicted COCO annotations to DAVIS masks, and pads both folders so every GT frame has a corresponding prediction mask.
 
-Ensure `PYTHONPATH` includes `herbfishCV` (see [Prerequisites](#prerequisites)).
+Ensure `PYTHONPATH` includes `herbfishCV` and `herbfishCV/scripts` (see [Prerequisites](#prerequisites)).
 
 ```bash
 python prepare_val_dataset.py \
