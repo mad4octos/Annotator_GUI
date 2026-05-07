@@ -7,10 +7,10 @@ import torch
 import numpy as np 
 import pandas as pd 
 import pickle 
-from sam2.build_sam import build_sam2_video_predictor
+from sam3.model_builder import build_sam3_video_model
 
 
-class SAM2FishSegmenter:
+class SAM3FishSegmenter:
     """
     A class used to conduct fish segmentation using SAM2. Specifically, 
     it provides the ability to create a SAM2 predictor, create an 
@@ -71,12 +71,14 @@ class SAM2FishSegmenter:
 
         else:
             raise TypeError("configs was not a str or dict!")
+        
+        self.width, self.height = self.configs["video_frame_size"]
 
         # TODO: determine if this is the best place to put this, might be worth removing
         # Append install directory so we can use sam2_checkpoints and model configurations 
-        sys.path.append(self.configs["sam2_install_dir"])
+        sys.path.append(self.configs["sam3_install_dir"])
 
-        # Set appropriate data types for SAM2
+        # Set appropriate data types for SAM3
         if device.type == "cuda":
             torch.autocast("cuda", dtype=torch.bfloat16).__enter__()
             if torch.cuda.get_device_properties(0).major >= 8:
@@ -85,11 +87,15 @@ class SAM2FishSegmenter:
         else:
             raise RuntimeError(f"Device of type {device.type} not supported!")  
 
-        # Initialize SAM2 video predictor 
-        # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/build_sam.py#L100
-        # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L19
-        self.predictor = build_sam2_video_predictor(self.configs["model_cfg"], ckpt_path=self.configs["sam2_checkpoint"], 
-                                                    device=device, non_overlap_masks=self.configs["non_overlap_masks"])
+        # Initialize SAM3 video predictor
+        # ref: https://github.com/facebookresearch/sam3/blob/44ef224799e7b32e017855823883909d38ffb30f/sam3/model_builder.py#L676
+        sam3_model = build_sam3_video_model(checkpoint_path=self.configs["sam3_checkpoint"], device=device)
+        self.predictor = sam3_model.tracker
+        self.predictor.backbone = sam3_model.detector.backbone
+
+        print("Creating output dir")
+        output_masks_dir = Path(self.configs["masks_dict_file"]).parent
+        output_masks_dir.mkdir(parents=True, exist_ok=True)
 
     def set_inference_state(self):
         """
@@ -115,7 +121,7 @@ class SAM2FishSegmenter:
         # Gather all the JPG paths representing the frames 
         self.frame_paths = utils.get_jpg_paths(self.configs["frame_dir"])
 
-        # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L42
+        # https://github.com/facebookresearch/sam3/blob/44ef224799e7b32e017855823883909d38ffb30f/sam3/model/sam3_tracking_predictor.py#L57
         self.inference_state = self.predictor.init_state(video_path=self.configs["frame_dir"], 
                                                          offload_video_to_cpu=self.configs["offload_video_to_cpu"], 
                                                          offload_state_to_cpu=self.configs["offload_state_to_cpu"], 
@@ -157,13 +163,15 @@ class SAM2FishSegmenter:
             labels = np.array([row[self.configs['labels_name']]], dtype=np.int32)  # Positive/Negative click
 
             # Explicitly call predictor.add_new_points_or_box for annotation
-            # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L161
+            # Normalize points to [0, 1] relative coordinates as required by SAM3
+            rel_points = [[x / self.width, y / self.height] for x, y in points]          
+
             # TODO: determine if it is helpful to add out_obj_ids and out_mask_logits as class variables
-            _, out_obj_ids, out_mask_logits = self.predictor.add_new_points_or_box(
+            _, out_obj_ids, _, _ = self.predictor.add_new_points_or_box(
                 inference_state=self.inference_state,
                 frame_idx=ann_frame_idx,
                 obj_id=ann_obj_id,
-                points=points,
+                points=rel_points,
                 labels=labels,
             )
 
@@ -196,15 +204,17 @@ class SAM2FishSegmenter:
                                       max_frame_num_to_track=100)
         """
 
-        # Perform prediction of masklets across video frames 
-        # ref: https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/sam2/sam2_video_predictor.py#L546
-        for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(self.inference_state,
+        # Perform prediction of masklets across video frames
+        # ref: https://github.com/facebookresearch/sam3/blob/44ef224799e7b32e017855823883909d38ffb30f/sam3/model/sam3_tracking_predictor.py#L790
+        for out_frame_idx, out_obj_ids, _, video_res_masks, _ in self.predictor.propagate_in_video(self.inference_state,
                                                                                              start_frame_idx=start_frame_idx, 
-                                                                                             max_frame_num_to_track=max_frame_num_to_track):
+                                                                                             max_frame_num_to_track=max_frame_num_to_track,
+                                                                                             reverse=False,
+                                                                                             propagate_preflight=True):
 
             # Create Bool mask and delete unneeded tensor
-            bool_masks = out_mask_logits > 0.0
-            del out_mask_logits
+            bool_masks = video_res_masks > 0.0
+            del video_res_masks
 
             # There's an extra dimension (1) to the masks, remove it
             bool_masks = bool_masks.squeeze(1)
@@ -283,8 +293,8 @@ class SAM2FishSegmenter:
             else:
                 annotation_chunk = obj_annotation[chunk]
 
-            # Reset inference state for the new incoming annotations 
-            self.predictor.reset_state(self.inference_state)   
+            # Clear all points for the new incoming annotations 
+            self.predictor.clear_all_points_in_video(self.inference_state)   
 
             # Add point annotations for provided annotation chunk 
             self.add_annotations(annotations=annotation_chunk)

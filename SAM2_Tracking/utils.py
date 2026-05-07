@@ -15,7 +15,7 @@ from tqdm import tqdm
 import pandas as pd 
 import pickle
 import warnings
-from sam2_fish_segmenter import SAM2FishSegmenter
+from sam2_fish_segmenter import SAM3FishSegmenter
 
 
 
@@ -78,7 +78,7 @@ def check_configs(config_path, device):
         warnings.warn(f"Device of type {device.type} not supported!")  
     
     # Check appropriate variables are strings
-    required_str_keys = ["sam2_install_dir", "model_cfg", "frame_dir", "annotations_file", 
+    required_str_keys = ["sam3_install_dir", "frame_dir", "annotations_file",
     "frame_idx_name", "obj_id_name", "points_name","labels_name", "masks_dict_file", "video_file",
     "font_color"]
     for key in required_str_keys:
@@ -91,7 +91,7 @@ def check_configs(config_path, device):
                     f"Config parameter '{key}' contains a non-string value: {v!r}")
     
     # Check that provided paths exist
-    path_keys = ["sam2_install_dir", "frame_dir", "annotations_file"]
+    path_keys = ["sam3_install_dir", "frame_dir", "annotations_file"]
     for key in path_keys:
         val = configs.get(key)
         
@@ -418,7 +418,7 @@ def run_segmentation(config_file, device):
         trial_config = get_trial_config(configs, i)
 
         # Initialize the segmenter with modified trial configs
-        segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
+        segmenter = SAM3FishSegmenter(configs = trial_config, device = device)
         print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
         segmenter.run_propagation()
 
@@ -852,7 +852,7 @@ def write_output_video(frame_dir, frame_masks_file, video_file, out_fps,
                     ax.text(centroid[0]*scale_x, centroid[1]*scale_y, obj_id, fontsize=font_size, color=font_color)
 
         # Set title with frame number
-        ax.set_title(f"SAM2 frame: {frame_idx}, Annotation frame: {frame_idx * (fps/out_fps) + SAM2_start}", fontsize=16)
+        ax.set_title(f"SAM3 frame: {frame_idx}, Annotation frame: {frame_idx * (fps/out_fps) + SAM2_start}", fontsize=16)
 
         # Set tick marks based on the original image dimensions
         ax.set_xticks(np.linspace(0, width, num=10))  # 10 evenly spaced ticks
