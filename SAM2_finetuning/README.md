@@ -22,46 +22,22 @@ Expected input layout.  Run `check_input_data_structure.py` to verify it (see St
 raw_data/
 ├── train/
 │   └── <observation_id>/
-│       ├── manual_prompts/  # Produced by Annotator_GUI, consumed by SAM2 and AMC
-│       │   └── <observation_id>_annotations.npy
-│       ├── predictions/  # Produced by SAM2, consumed by AMC
-│       │   └── <observation_id>_masks.pkl
-│       ├── annotations/  # Produced by AMC, consumed by LabelMe
-│       │   └── instances_train.json
 │       ├── reviewed_annotations/  # Produced by LabelMe
-│       │   ├── .labelme_review.json
-│       │   ├── incorrect_predictions.json
 │       │   ├── instances_train.json
-│       │   └── instances_train_v*.json  (at least one)
+│       │   └── instances_train_v*.json  # (Optional)
 │       └── images/  # Produced by AMC, consumed by LabelMe
 │           └── train/
 │               └── *.jpg
 └── val/
     └── <observation_id>/
-        ├── manual_prompts/
-        │   └── <observation_id>_annotations.npy
-        ├── predictions/
-        │   ├── <observation_id>_masks.pkl
-        │   └── run_info.json
-        ├── annotations/
-        │   └── instances_val.json
         ├── reviewed_annotations/
-        │   ├── .labelme_review.json
-        │   ├── incorrect_predictions.json
         │   ├── instances_val.json
-        │   └── instances_val_v*.json  (at least one)
-        ├── images/
-        │   └── val/
-        │       └── *.jpg
+        │   └── instances_val_v*.json  # (Optional)
         └── trackers/
-            └── <tracker_name>/
-                ├── automatic_prompts/
-                │   ├── <observation_id>_annotations.json
-                │   └── run_info.json
-                ├── predictions/
-                │   └── <observation_id>_masks.pkl
-                └── annotations/
-                    └── instances_val.json
+            ├── <tracker_name>/
+            │   └── predictions/
+            │       └── <observation_id>_masks.pkl
+│           └── ...
 ```
 
 ### Output: `dataset/` and `results/`
