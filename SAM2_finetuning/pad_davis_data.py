@@ -1,10 +1,6 @@
 """
 Pad GT and prediction DAVIS folders so they contain the same set of frames.
 
-Frames present in one folder but missing from the other are filled with blank
-(all-zero) palette-indexed PNGs. TrackEval errors if the two folders have a
-different frame count.
-
 Run this after `coco_to_sam2_masks.py` on both GT and predictions, and before
 running TrackEval's `run_davis.py`.
 
@@ -21,6 +17,39 @@ Usage:
     python scripts/pad_davis_predictions.py \
         --pred-dir path/to/trackers/my_tracker/Annotations/seq_name \
         --images-dir path/to/raw/frames/seq_name
+
+Missing frames are filled with blank (all-zero) palette-indexed PNGs,
+representing frames where no objects of interest are present. This is required
+by both TrackEval (which errors if GT and prediction folders have different
+frame counts) and SAM2 finetuning (which expects an annotation PNG for every
+frame).
+
+Train split: GT annotations are padded to match every frame in the images
+directory. Missing GT annotation frames correspond to video frames where no 
+objects of interest are present.
+
+  Before padding:
+  Frame:   0    1    2    3    4    5    6    7    8
+  Images:  -    -    -    -    -    -    -    -    -
+  GT:      -    -         -              -         -
+
+  After padding (□ = blank frame inserted):
+  Frame:   0    1    2    3    4    5    6    7    8
+  GT:      -    -    □    -    □    □    -    □    -
+
+
+Val split: both GT and Pred are padded to fill each other's gaps, so that
+each side has a corresponding blank frame for every frame present in the other.
+
+  Before padding:
+  Frame:  0    1    2    3    4    5    6    7    8
+  GT:     -    -         -              -         -
+  Pred:   -         -    -    -         -    -    - 
+
+  After padding (□ = blank frame inserted):
+  Frame:  0    1    2    3    4    5    6    7    8
+  GT:     -    -    □    -    □         -    □    -
+  Pred:   -    □    -    -    -         -    -    -
 """
 
 # Standard Library imports
