@@ -1,10 +1,10 @@
 This folder contains scripts and configuration for finetuning SAM2 on fish segmentation data and evaluating the result with TrackEval.
 The workflow has three stages: 
-1. dataset preparation
-   1.a manual preparation of the raw input data
-   1.b automatic processing into the formats used for training and validation
+1. Dataset preparation
+   1.a Manual preparation of the raw input data
+   1.b Automatic processing into the formats used for training and validation
 2. SAM2 model finetuning
-3. Validation of finetuned model
+3. Validation of finetuned model(s)
 
 **Python version requirements:**
 - Main scripts (`prepare_*.py`, `check_*.py`, `convert_*.py`, `validate.py`): **Python ≥ 3.9**
@@ -16,28 +16,33 @@ The workflow has three stages:
 
 ### Input: `raw_data/`
 
-Expected input layout.  Run `check_input_data_structure.py` to verify it (see Step 1 below).
+Expected input layout.  You will be able to run `check_input_data_structure.py` during Step 1 below to verify it.
+
+Train and val split assignments must be decided before running the AMC, so that the `--subset` flag can be passed from the start and the correct suffixes (`_train` / `_val`) are applied to output files and dirs.
 
 ```
 raw_data/
 ├── train/
 │   └── <observation_id>/
-│       ├── reviewed_annotations/  # Produced by LabelMe
-│       │   ├── instances_train.json
-│       │   └── instances_train_v*.json  # (Optional)
-│       └── images/  # Produced by AMC, consumed by LabelMe
+│       ├── reviewed_annotations/  
+│       │   ├── instances_train.json  # Produced by AMC
+│       │   └── instances_train_v*.json  # Produced by LabelMe
+│       └── images/  # Produced by AMC
 │           └── train/
 │               └── *.jpg
 └── val/
     └── <observation_id>/
         ├── reviewed_annotations/
-        │   ├── instances_val.json
-        │   └── instances_val_v*.json  # (Optional)
+        │   ├── instances_val.json  # Produced by AMC
+        │   └── instances_val_v*.json  # Produced by LabelMe
+        ├── images/  # Produced by AMC
+        │   └── val/
+        │       └── *.jpg
         └── trackers/
             ├── <tracker_name>/
             │   └── predictions/
-            │       └── <observation_id>_masks.pkl
-│           └── ...
+            │       └── <observation_id>_masks.pkl  # Produced by SAM2
+            └── ...
 ```
 
 ### Output: `dataset/` and `results/`
@@ -79,6 +84,29 @@ dataset/
 results/                        # TrackEval metric outputs (written by validate.py)
 ```
 
+### Project structure
+
+Suggested project layout, where `<root>/` is the working directory (e.g. `/scratch/alpine/user`):
+```
+<root>/
+├── raw_data/
+│   └── ...
+├── dataset/
+│   └── ...
+├── herbfishCV/
+│   └── ...
+├── Annotator_GUI/
+│   ├── SAM2_finetuning/
+│   │   └── ...
+│   └── SAM2_Tracking/
+│       └── ...
+├── sam2/
+│   └── ...
+├── TrackEval/
+│   └── ...
+└── results/
+    └── ...
+```
 ---
 
 ## Prerequisites
@@ -94,6 +122,7 @@ Several scripts depend on modules from `herbfishCV` (`coco_types`, `convert_util
 > ```
 
 ```bash
+cd <root>/
 git clone https://github.com/mad4octos/herbfishCV
 pip install -r herbfishCV/requirements.txt
 ```
@@ -101,7 +130,7 @@ pip install -r herbfishCV/requirements.txt
 Set `PYTHONPATH` at the start of each shell session before running the scripts:
 
 ```bash
-export PYTHONPATH="/path/to/herbfishCV:/path/to/herbfishCV/scripts"
+export PYTHONPATH="<root>/herbfishCV:<root>/herbfishCV/scripts"
 ```
 
 ---
@@ -133,7 +162,8 @@ Manually prepare according to section "Input: `raw_data/`"
 Walk every observation directory under `train/` and `val/` and reports missing files or subdirectories.
 
 ```bash
-python check_input_data_structure.py /path/to/raw_data
+cd <root>/Annotator_GUI/SAM2_finetuning/
+python check_input_data_structure.py <root>/raw_data
 ```
 
 Add `--create-missing` to scaffold any missing directories (files are not auto-created).
@@ -143,9 +173,10 @@ Add `--create-missing` to scaffold any missing directories (files are not auto-c
 Convert reviewed annotations to DAVIS masks, copy JPEG frames, and pad any unannotated frames with blank masks.
 
 ```bash
+cd <root>/Annotator_GUI/SAM2_finetuning/
 python prepare_train_dataset.py \
-    --input-data-dir /path/to/raw_data/train \
-    --output-data-dir /path/to/dataset/train
+    --input-data-dir <root>/raw_data/train \
+    --output-data-dir <root>/dataset/train
 ```
 
 ### Step 4 — Prepare the val dataset
@@ -155,15 +186,17 @@ Convert tracker `.pkl` predictions to COCO JSON, GT and predicted COCO annotatio
 Ensure `PYTHONPATH` includes `herbfishCV` and `herbfishCV/scripts` (see [Prerequisites](#prerequisites)).
 
 ```bash
+cd <root>/Annotator_GUI/SAM2_finetuning/
 python prepare_val_dataset.py \
-    --input-data-dir /path/to/raw_data/val \
-    --output-data-dir /path/to/dataset/val
+    --input-data-dir <root>/raw_data/val \
+    --output-data-dir <root>/dataset/val
 ```
 
 ### Step 5 — Check the output structure
 
 ```bash
-python check_output_data_structure.py /path/to/dataset
+cd <root>/Annotator_GUI/SAM2_finetuning/
+python check_output_data_structure.py <root>/dataset
 ```
 
 ---
@@ -172,7 +205,10 @@ python check_output_data_structure.py /path/to/dataset
 
 ### 2.1 Install SAM2 and download weights
 
+It's assumed that you are in directory `<root>`
+
 ```bash
+cd <root>/
 git clone https://github.com/facebookresearch/sam2.git
 cd sam2
 pip install -e ".[dev]"
@@ -185,23 +221,23 @@ cd checkpoints && ./download_ckpts.sh
 
 ### 2.3 Edit the YAML configuration
 
-In `configs/sam2.1_hiera_large_finetune.yaml`, update the two dataset path variables to match your `dataset/train/`:
+In `<root>/Annotator_GUI/SAM2_finetuning/configs/sam2.1_hiera_large_finetune.yaml`, update the two dataset path variables to match your `dataset/train/`:
 
 ```yaml
-img_folder: /path/to/dataset/train/JPEGImages   # dataset/train/JPEGImages
-gt_folder:  /path/to/dataset/train/Annotations  # dataset/train/Annotations
+img_folder: <root>/dataset/train/JPEGImages   # dataset/train/JPEGImages
+gt_folder:  <root>/dataset/train/Annotations  # dataset/train/Annotations
 ```
 
-### 2.4 Move the YAML configuration into SAM2
+### 2.4 Move the YAML configuration to the SAM2 repository
 
 ```bash
-mv configs/sam2.1_hiera_large_finetune.yaml sam2/configs/
+cp <root>/Annotator_GUI/SAM2_finetuning/configs/sam2.1_hiera_large_finetune.yaml <root>/sam2/sam2/configs/
 ```
 
 ### 2.5 Start training
 
 ```bash
-cd sam2
+cd <root>/sam2/
 python training/train.py \
     -c configs/sam2.1_hiera_large_finetune.yaml \
     --use-cluster 0 \
@@ -231,21 +267,23 @@ pip install matplotlib-inline ipython numpy==1.18.1 scipy==1.4.1 \
 Clone TrackEval:
 
 ```bash
+cd <root>/
 git clone https://github.com/JonathonLuiten/TrackEval
 ```
 
 `herbfishCV` must already be cloned, installed, and on your `PYTHONPATH` — see [Prerequisites](#prerequisites).
 
 `raw_data/val/` must be fully populated (see the input structure above), with at least one tracker's
-`predictions/*.pkl` present under each observation directory.
+`trackers/<tracker_name>/predictions/*.pkl` present under each observation directory.
 
 ### 3.2 Run validation
 
 ```bash
+cd <root>/Annotator_GUI/SAM2_finetuning/
 python validate.py \
-    --val-dir       /path/to/dataset/val \
-    --trackeval-dir /path/to/TrackEval \
-    [--results-dir  /path/to/results]     # optional; default: results/ next to dataset/
+    --val-dir       <root>/dataset/val \
+    --trackeval-dir <root>/TrackEval \
+    [--results-dir  <root>/results]     # optional; default: results/ next to dataset/
 ```
 
 Results are printed to stdout and written to `results/` (or the path given via `--results-dir`).
