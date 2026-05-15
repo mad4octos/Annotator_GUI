@@ -1,8 +1,29 @@
 """
-Convert a SAM2 .pkl masks file to COCO JSON without requiring an annotations .npy file.
+Converts a SAM2 .pkl masks file directly to a COCO JSON dataset, without requiring an
+annotations .npy file. Object IDs and frame ranges are derived from the masks themselves.
+All masks are accepted as-is (no automatic cleaning), keeping the largest blob per object
+per frame.
 
 Usage:
-    python convert_pkl_to_coco_masks.py --masks_path <path> --output_path <path> [--images_path <path>] [--obs_id <id>] [--class_name <name>] [--filename_num_zeros <n>] [--subset <name>]
+    python convert_pkl_to_coco_masks.py \
+        --masks_path /path/to/masks.pkl \
+        --output_path /path/to/output \
+        [--images_path /path/to/frames] \
+        [--obs_id <id>] \
+        [--class_name <name>] \
+        [--filename_num_zeros <n>] \
+        [--subset <name>]
+
+Arguments:
+    --masks_path          Path to the SAM2 masks .pkl file.
+    --output_path         Root output directory. COCO JSON is written under <output_path>/coco/.
+    --images_path         (Optional) Path to the directory containing the extracted image frames.
+                          When omitted, image dimensions are inferred from the mask tensors and
+                          no image files are read.
+    --obs_id              Observation identifier used as the dataset name (default: obs).
+    --class_name          Object class name (default: fish).
+    --filename_num_zeros  Zero-padding width for frame filenames (default: 5).
+    --subset              Dataset subset name, e.g. train or val (default: train).
 """
 
 # Standard Library imports

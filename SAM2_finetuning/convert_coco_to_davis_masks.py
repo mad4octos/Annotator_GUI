@@ -33,11 +33,15 @@ Note:
 If multiple annotations share a frame and their masks overlap, the annotation with the higher ObjID wins (last-write).
 
 Usage:
-python convert_coco_to_davis_masks.py \\
-    --coco-file path/to/instances_train.json \\
-    --output-dir path/to/output \\
+python convert_coco_to_davis_masks.py \
+    --coco-file path/to/instances_train.json \
+    --output-dir path/to/output \
     --video-name my_video
 
+Arguments:
+    --coco-file     Path to the COCO annotations file (instances_train.json).
+    --output-dir    Root output directory. Masks are saved under <output-dir>/Annotations/<video-name>/.
+    --video-name    Video/sequence name used as the subfolder under Annotations/.
 """
 
 # Standard Library imports
