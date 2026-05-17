@@ -6,14 +6,14 @@ Expects this raw_data layout:
   raw_data/val/
   └── <observation_id>/
       ├── reviewed_annotations/
-      │   ├── instances_val_v<N>.json   ← preferred GT (validated)
-      │   └── instances_val.json        ← fallback GT
+      │   ├── instances_val.json        # produced by AMC
+      │   └── instances_val_v<N>.json   # produced by LabelMe (reviewed)
       ├── images/
-      │   └── val/                      ← optional frame images
+      │   └── val/                      # Copied by AMC
       └── trackers/
           └── <tracker_name>/
               └── predictions/
-                  └── *.pkl             ← SAM2 prediction pickle
+                  └── *.pkl             # Produced by SAM2
 
 Steps performed for each (observation, tracker) pair:
   1. Convert the SAM pickle to COCO via pkl_masks_to_coco.py.
@@ -84,14 +84,14 @@ def discover_sequences(raw_data_dir: Path) -> list[dict]:
             print(f"Warning: skipping {obs_id!r}; no GT COCO found under {gt_dir}")
             continue
 
+        images_dir = obs_dir / "images" / "val"
+        if not images_dir.exists():
+            images_dir = None
+
         trackers_dir = obs_dir / "trackers"
         if not trackers_dir.exists():
             print(f"Warning: skipping {obs_id!r}; no trackers/ directory found")
             continue
-
-        images_dir = obs_dir / "images" / "val"
-        if not images_dir.exists():
-            images_dir = None
 
         for tracker_dir in sorted(trackers_dir.iterdir()):
             if not tracker_dir.is_dir():
@@ -176,28 +176,8 @@ def main() -> None:
         print(f"Sequence {i + 1}/{n}: {obs_id}  [tracker: {tracker_name}]")
         print(f"{'=' * 60}")
 
-        # Step 1: pkl to COCO
-        print("\n--- Step 1: Converting SAM pickle to COCO ---")
-        pkl_coco_dir = seq["tracker_dir"]
-        cmd = [
-            sys.executable,
-            str(SCRIPTS_DIR / "convert_pkl_to_coco_masks.py"),
-            "--masks_path",
-            seq["pred_pkl"],
-            "--output_path",
-            str(pkl_coco_dir),
-            "--obs_id",
-            obs_id,
-            "--subset",
-            "val",
-        ]
-        if seq["images_dir"] is not None:
-            cmd += ["--images_path", str(seq["images_dir"])]
-        run(cmd)
-        pred_coco = str(pkl_coco_dir / "annotations" / "instances_val.json")
-
-        # Step 2: GT COCO to DAVIS
-        print("\n--- Step 2: Converting GT COCO to DAVIS ---")
+        # Step 1: GT COCO to DAVIS
+        print("\n--- Step 1: Converting GT COCO to DAVIS ---")
         run(
             [
                 sys.executable,
@@ -210,6 +190,26 @@ def main() -> None:
                 obs_id,
             ]
         )
+
+        # Step 2: predictions PKL to COCO
+        print("\n--- Step 2: Converting SAM2 prediction pickle files to COCO ---")
+        tracker_dir = seq["tracker_dir"]
+        cmd = [
+            sys.executable,
+            str(SCRIPTS_DIR / "convert_pkl_to_coco_masks.py"),
+            "--masks_path",
+            seq["pred_pkl"],
+            "--output_path",
+            str(tracker_dir),
+            "--obs_id",
+            obs_id,
+            "--subset",
+            "val",
+        ]
+        if seq["images_dir"] is not None:
+            cmd += ["--images_path", str(seq["images_dir"])]
+        run(cmd)
+        pred_coco = str(tracker_dir / "annotations" / "instances_val.json")
 
         # Step 3: Predictions COCO to DAVIS
         print("\n--- Step 3: Converting predictions COCO to DAVIS ---")
@@ -226,8 +226,8 @@ def main() -> None:
             ]
         )
 
-        # Step 4: Pad missing prediction frames
-        print("\n--- Step 4: Padding missing prediction frames ---")
+        # Step 4: Pad missing GT/prediction frames
+        print("\n--- Step 4: Padding missing GT/prediction frames ---")
         run(
             [
                 sys.executable,
