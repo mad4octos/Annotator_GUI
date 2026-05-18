@@ -146,6 +146,7 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Output directory where TrackEval-ready GT and tracker data are written.",
     )
+    p.add_argument("--filename_num_zeros", type=int, default=5)
     return p.parse_args()
 
 
@@ -205,6 +206,8 @@ def main() -> None:
             obs_id,
             "--subset",
             "val",
+            "--filename_num_zeros",
+            args.filename_num_zeros,
         ]
         if seq["images_dir"] is not None:
             cmd += ["--images_path", str(seq["images_dir"])]
