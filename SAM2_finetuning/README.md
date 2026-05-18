@@ -189,7 +189,8 @@ Ensure `PYTHONPATH` includes `herbfishCV` and `herbfishCV/scripts` (see [Prerequ
 cd <root>/Annotator_GUI/SAM2_finetuning/
 python prepare_val_dataset.py \
     --input-data-dir <root>/raw_data/val \
-    --output-data-dir <root>/dataset/val
+    --output-data-dir <root>/dataset/val \
+    [--filename_num_zeros N]   # zero-padding width for output filenames (default: 5)
 ```
 
 ### Step 5 — Check the output structure

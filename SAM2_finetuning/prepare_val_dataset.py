@@ -36,7 +36,8 @@ Usage
 -----
     python prepare_val_dataset.py \\
         --input-data-dir /path/to/raw_data/val \\
-        --output-data-dir  /path/to/dataset/val
+        --output-data-dir  /path/to/dataset/val \\
+        [--filename_num_zeros N]   # zero-padding width for output filenames (default: 5)
 """
 
 import argparse
