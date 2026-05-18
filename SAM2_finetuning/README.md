@@ -41,7 +41,7 @@ raw_data/
         └── trackers/
             ├── <tracker_name>/
             │   └── predictions/
-            │       └── <observation_id>_masks.pkl  # Produced by SAM2
+            │       └── *.pkl  # Produced by SAM2
             └── ...
 ```
 

@@ -143,7 +143,7 @@ def check_tracker_dir(
 
     preds_dir = tracker_dir / "predictions"
     if check_dir(preds_dir, reporter, create):
-        check_file(preds_dir / f"{obs_id}_masks.pkl", reporter)
+        check_files_matching(preds_dir, "*.pkl", reporter)
 
     # annotations_dir = tracker_dir / "annotations"
     # if check_dir(annotations_dir, reporter, create):
