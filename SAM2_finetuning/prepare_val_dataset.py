@@ -211,9 +211,9 @@ def main() -> None:
             "val",
             "--filename_num_zeros",
             args.filename_num_zeros,
+            "--images_path",
+            str(seq["images_dir"]),
         ]
-        if seq["images_dir"] is not None:
-            cmd += ["--images_path", str(seq["images_dir"])]
         run(cmd)
         pred_coco = str(tracker_dir / "annotations" / "instances_val.json")
 

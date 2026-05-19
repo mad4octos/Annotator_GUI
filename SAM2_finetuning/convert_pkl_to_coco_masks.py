@@ -143,7 +143,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--masks_path", type=Path, required=True)
     parser.add_argument("--coco-file", type=Path, required=True)
-    parser.add_argument("--images_path", type=Path, default=None)
+    parser.add_argument("--images_path", type=Path, required=True)
     parser.add_argument("--output_path", type=Path, required=True)
     parser.add_argument("--obs_id", type=str, default="obs")
     parser.add_argument("--class_name", type=str, default="fish")
