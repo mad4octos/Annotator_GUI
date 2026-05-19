@@ -210,7 +210,7 @@ def main() -> None:
             "--subset",
             "val",
             "--filename_num_zeros",
-            args.filename_num_zeros,
+            str(args.filename_num_zeros),
             "--images_path",
             str(seq["images_dir"]),
         ]
