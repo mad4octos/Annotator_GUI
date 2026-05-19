@@ -1,3 +1,4 @@
+import ast 
 import utils 
 import plot_utils
 import shutil
@@ -7,6 +8,8 @@ import torch
 import numpy as np 
 import pandas as pd 
 import pickle 
+from typing import Literal
+
 from sam2.build_sam import build_sam2_video_predictor
 
 
@@ -24,8 +27,10 @@ class SAM2FishSegmenter:
     set_inference_state(self)
         Obtains the inference state for `self.predictor` and 
         sets `self.frame_paths`
-    add_annotations(self, annotations)
+    add_point_annotations(self, annotations)
         Adds provided annotations to predictor
+    add_box_annotations(self, annotations)
+        Adds provided bounding-box annotations to predictor
     run_propagation(self)
         Propagates the prompts to get the masklet across the video using the 
         class predictor and inference state. Additionally, creates a pickle
@@ -122,7 +127,7 @@ class SAM2FishSegmenter:
                                                          async_loading_frames=self.configs["async_loading_frames"])
 
 
-    def add_annotations(self, annotations=None):
+    def add_point_annotations(self, annotations=None):
         """
         Adds provided `annotations` to `self.predictor` using the 
         `SAM2VideoPredictor` method `add_new_points_or_box`.
@@ -142,7 +147,7 @@ class SAM2FishSegmenter:
 
         Examples
         --------
-        >>> segmenter.add_annotations(annotations=ann_df)
+        >>> segmenter.add_point_annotations(annotations=ann_df)
         """
 
         if not isinstance(annotations, pd.DataFrame):
@@ -165,6 +170,51 @@ class SAM2FishSegmenter:
                 obj_id=ann_obj_id,
                 points=points,
                 labels=labels,
+            )
+
+    def add_box_annotations(self, annotations=None):
+        """
+        Adds bounding-box annotations to `self.predictor` using the
+        `SAM2VideoPredictor` method `add_new_points_or_box`.
+
+        Parameters
+        ----------
+        annotations : pandas.DataFrame
+            DataFrame with index `obj_id_name` and columns `frame_idx_name`,
+            `bbox_name`, and `obj_type_name`.
+            Each bbox cell must be a flat array-like of length 4:
+            [x_min, y_min, x_max, y_max] (top-left x,y and bottom-right x,y).
+
+        Raises
+        ------
+        TypeError
+            If `annotations` is not a pandas DataFrame.
+
+        Examples
+        --------
+        Expected DataFrame structure (config defaults: Frame, BBox, ObjType, ObjID):
+
+        index(ObjID)   Frame   BBox                  ObjType
+        ------------   -----   ------------------    ----------
+                   1       0   [100, 150, 300, 400]  Parrotfish
+
+        >>> segmenter.add_box_annotations(annotations=bbox_df)
+        """
+        if not isinstance(annotations, pd.DataFrame):
+            raise TypeError("annotations should be a Pandas DataFrame!")
+
+        for index, row in annotations.iterrows():
+            ann_frame_idx = row[self.configs["frame_idx_name"]]
+            ann_obj_id = int(index)
+            box = np.array(
+                row[self.configs["bbox_name"]], dtype=np.float32
+            )  # shape (4,)
+
+            self.predictor.add_new_points_or_box(
+                inference_state=self.inference_state,
+                frame_idx=ann_frame_idx,
+                obj_id=ann_obj_id,
+                box=box,
             )
 
     def get_masks(self, frame_masks=None, start_frame_idx=None, max_frame_num_to_track=None):
@@ -234,7 +284,7 @@ class SAM2FishSegmenter:
 
         return frame_masks
 
-    def run_propagation(self):
+    def run_propagation(self, prompt_type: Literal["points", "bboxes"]):
         """
         Runs entire workflow: setting the inference state,
         collecting and adding annotations, getting SAM2
@@ -246,51 +296,80 @@ class SAM2FishSegmenter:
         # Set inference state for SAM2
         self.set_inference_state()
 
-        # Get keys in annotations that will become DataFrame columns
-        df_columns = [self.configs["frame_idx_name"], self.configs["labels_name"], 
-                      self.configs["obj_id_name"], self.configs["points_name"]]
+        if prompt_type == "points":
 
-        # Convert annotations to a DataFrame and adjust frame values 
-        annotations = utils.adjust_annotations(annotations_file=self.configs["annotations_file"], fps=self.configs["fps"], 
-                                               out_fps = self.configs["out_fps"], SAM2_start=self.configs["SAM2_start"], 
-                                               df_columns=df_columns, frame_col_name=self.configs["frame_idx_name"])
+            # Get keys in annotations that will become DataFrame columns
+            df_columns = [self.configs["frame_idx_name"], self.configs["labels_name"], 
+                        self.configs["obj_id_name"], self.configs["points_name"]]
 
-        # Get object frame chunks and modified annotations (that have labels_name rows with 3/4 values dropped)
-        obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations, obj_name=self.configs["obj_id_name"], 
-                                                                  frame_name=self.configs["frame_idx_name"], 
-                                                                  click_type_name=self.configs["labels_name"])
+            # Convert annotations to a DataFrame and adjust frame values 
+            annotations = utils.adjust_annotations(annotations_file=self.configs["annotations_file"], fps=self.configs["fps"], 
+                                                out_fps = self.configs["out_fps"], SAM2_start=self.configs["SAM2_start"], 
+                                                df_columns=df_columns, frame_col_name=self.configs["frame_idx_name"])
 
-        # Initialize dictionary of masks for each frame
-        frame_masks = {key: {} for key in range(len(self.frame_paths))}
+            # Get object frame chunks and modified annotations (that have labels_name rows with 3/4 values dropped)
+            obj_frame_chunks, annotations = utils.get_frame_chunks_df(df=annotations, obj_name=self.configs["obj_id_name"], 
+                                                                    frame_name=self.configs["frame_idx_name"], 
+                                                                    click_type_name=self.configs["labels_name"])
 
-        for index, row in obj_frame_chunks.iterrows():
+            # Initialize dictionary of masks for each frame
+            frame_masks = {key: {} for key in range(len(self.frame_paths))}
 
-            # Get the enter, exit, and number of frames for obj label 
-            enter_frame = row['EnterFrame']
-            exit_frame = row['ExitFrame']
-            num_frames = exit_frame - enter_frame
+            for index, row in obj_frame_chunks.iterrows():
 
-            # Get all of the annotations for the given object label
-            obj_annotation = annotations.loc[row[self.configs["obj_id_name"]]]
+                # Get the enter, exit, and number of frames for obj label 
+                enter_frame = row['EnterFrame']
+                exit_frame = row['ExitFrame']
+                num_frames = exit_frame - enter_frame
 
-            # Get all chunks where annotation Frame values are between enter_frame and exit_frame inclusive 
-            chunk = (obj_annotation[self.configs["frame_idx_name"]] >= enter_frame) & (obj_annotation[self.configs["frame_idx_name"]] <= exit_frame)
+                # Get all of the annotations for the given object label
+                obj_annotation = annotations.loc[row[self.configs["obj_id_name"]]]
 
-            # Get annotation chunk 
-            if isinstance(obj_annotation, pd.Series):
-                # Convert Series to a DataFrame with correct columns
-                annotation_chunk = obj_annotation.to_frame().T
-            else:
-                annotation_chunk = obj_annotation[chunk]
+                # Get all chunks where annotation Frame values are between enter_frame and exit_frame inclusive 
+                chunk = (obj_annotation[self.configs["frame_idx_name"]] >= enter_frame) & (obj_annotation[self.configs["frame_idx_name"]] <= exit_frame)
 
-            # Reset inference state for the new incoming annotations 
-            self.predictor.reset_state(self.inference_state)   
+                # Get annotation chunk 
+                if isinstance(obj_annotation, pd.Series):
+                    # Convert Series to a DataFrame with correct columns
+                    annotation_chunk = obj_annotation.to_frame().T
+                else:
+                    annotation_chunk = obj_annotation[chunk]
 
-            # Add point annotations for provided annotation chunk 
-            self.add_annotations(annotations=annotation_chunk)
+                # Reset inference state for the new incoming annotations 
+                self.predictor.reset_state(self.inference_state)   
 
-            # Run propagation on chunk of annotated frames
-            frame_masks = self.get_masks(frame_masks=frame_masks, start_frame_idx=enter_frame, max_frame_num_to_track=num_frames)
+                # Add point annotations for provided annotation chunk 
+                self.add_point_annotations(annotations=annotation_chunk)
+
+                # Run propagation on chunk of annotated frames
+                frame_masks = self.get_masks(frame_masks=frame_masks, start_frame_idx=enter_frame, max_frame_num_to_track=num_frames)
+
+        elif prompt_type == "bboxes":
+            frame_idx_colname = self.configs["frame_idx_name"]
+            obj_id_colname = self.configs["obj_id_name"]
+            bbox_colname = self.configs["bbox_name"]
+            annotations_filename = self.configs["annotations_file"]
+            
+            df = pd.read_csv(annotations_filename, index_col=obj_id_colname)
+            df[bbox_colname] = df[bbox_colname].apply(ast.literal_eval)
+
+            frame_masks = {key: {} for key in range(len(self.frame_paths))}
+            for obj_id, obj_df in df.groupby("ObjID"):
+                start_frame_idx = int(df[frame_idx_colname].min())
+                num_frames = len(obj_df)
+
+                self.predictor.reset_state(self.inference_state)
+                self.add_box_annotations(annotations=obj_df)
+
+                self.get_masks(
+                    frame_masks=frame_masks,
+                    start_frame_idx=start_frame_idx,
+                    max_frame_num_to_track=num_frames,
+                )
+        else:
+            raise ValueError(
+                "The only accepted values for `prompt_type` are `points` and `bboxes`."
+            )
 
         # Save frame_masks as pkl file 
         with open(self.configs["masks_dict_file"], "wb") as file:
