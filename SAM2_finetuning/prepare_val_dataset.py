@@ -201,6 +201,8 @@ def main() -> None:
             str(SCRIPTS_DIR / "convert_pkl_to_coco_masks.py"),
             "--masks_path",
             seq["pred_pkl"],
+            "--coco-file",
+            seq["gt_coco"],
             "--output_path",
             str(tracker_dir),
             "--obs_id",

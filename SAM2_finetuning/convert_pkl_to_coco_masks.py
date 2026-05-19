@@ -28,6 +28,7 @@ Arguments:
 
 # Standard Library imports
 import argparse
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -35,6 +36,7 @@ from pathlib import Path
 import pandas as pd
 
 # Local imports
+from coco_types import CocoFile, CocoImage
 from convert_utils import (
     FrameIndex,
     MasksType,
@@ -44,6 +46,27 @@ from convert_utils import (
     load_masks,
 )
 from dataset_builder import DatumaroDatasetBuilder
+
+
+def infer_frame_step_from_coco(coco_file: Path) -> int | None:
+    """ """
+    with open(coco_file) as f:
+        coco: CocoFile = json.load(f)
+
+    frame_numbers: list[int] = []
+    for img in coco.get("images", []):
+        coco_image = CocoImage.from_dict(img)
+        frame_numbers.append(int(coco_image.filepath.stem))
+    frame_numbers.sort()
+
+    if len(frame_numbers) < 2:
+        return None
+
+    diffs = [
+        frame_numbers[i + 1] - frame_numbers[i] for i in range(len(frame_numbers) - 1)
+    ]
+    assert len(set(diffs)) == 1, f"Inconsistent frame step in COCO file: {set(diffs)}"
+    return diffs[0]
 
 
 def build_annotations_df(masks: MasksType, class_name: str) -> pd.DataFrame:
@@ -80,6 +103,7 @@ def build_annotations_df(masks: MasksType, class_name: str) -> pd.DataFrame:
 
 def masks_pkl_to_coco(
     masks_path: Path,
+    coco_file: Path,
     output_path: Path,
     images_path: Path | None = None,
     obs_id: str = "obs",
@@ -91,6 +115,7 @@ def masks_pkl_to_coco(
     annotations_df = build_annotations_df(masks, class_name)
     label_categories = load_categories(annotations_df)
     chunked_df = get_frame_chunks_df(annotations_df)
+    frame_step = infer_frame_step_from_coco(coco_file)
 
     builder = DatumaroDatasetBuilder(
         obs_id=obs_id,
@@ -105,6 +130,7 @@ def masks_pkl_to_coco(
         no_auto=True,
         subset=subset,
     )
+    builder.frame_step = frame_step
     dataset = builder.build()
 
     dataset.export(str(output_path), format="coco_instances")
@@ -116,6 +142,7 @@ if __name__ == "__main__":
         description="Convert SAM2 .pkl masks to COCO JSON."
     )
     parser.add_argument("--masks_path", type=Path, required=True)
+    parser.add_argument("--coco-file", type=Path, required=True)
     parser.add_argument("--images_path", type=Path, default=None)
     parser.add_argument("--output_path", type=Path, required=True)
     parser.add_argument("--obs_id", type=str, default="obs")
@@ -126,6 +153,7 @@ if __name__ == "__main__":
 
     masks_pkl_to_coco(
         masks_path=args.masks_path,
+        coco_file=args.coco_file,
         output_path=args.output_path,
         images_path=args.images_path,
         obs_id=args.obs_id,
