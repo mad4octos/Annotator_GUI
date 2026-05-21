@@ -87,7 +87,7 @@ def _decode_segmentation(
 
 
 def build_frame_mask(
-    annotations: list[CocoAnnotation], image: CocoImage
+    annotations: list[CocoAnnotation], image: CocoImage, id_offset: int = 0
 ) -> npt.NDArray[np.uint8]:
     """Combine multiple annotations into one (H, W) uint8 label array."""
     canvas = np.zeros((image.height, image.width), dtype=np.uint8)
@@ -96,7 +96,7 @@ def build_frame_mask(
         obj_id = ann.attributes["ObjID"]
         assert isinstance(obj_id, int), "ObjID is not an int!"
         mask = _decode_segmentation(ann, image)
-        canvas[mask] = obj_id
+        canvas[mask] = obj_id + id_offset
     return canvas
 
 
@@ -136,9 +136,6 @@ def group_annotations_by_image_id(
         if "ObjID" not in ann.attributes:
             print(f"Warning: annotation {ann.id} missing ObjID attribute — skipped")
             continue
-        if ann.attributes["ObjID"] == 0:
-            print(f"Warning: annotation {ann.id} has ObjID=0 (reserved for background) — skipped")
-            continue
         image_id_to_ann[ann.image_id].append(ann)
     return image_id_to_ann
 
@@ -161,18 +158,21 @@ def convert(coco_file: Path, output_dir: Path, video_name: str) -> None:
     if not all_obj_ids:
         raise ValueError("No annotations with ObjID found.")
 
-    if (max_obj_id := max(all_obj_ids)) > 254:
+    # In DAVIS, the background has value 0 and objects start at 1
+    id_offset = 1 if 0 in all_obj_ids else 0
+
+    if (max_obj_id := max(all_obj_ids) + id_offset) > 254:
         raise ValueError(
             f"ObjID {max_obj_id} conflicts with DAVIS void (254) or exceeds uint8 range."
         )
 
-    print(f"ObjIDs found: {sorted(set(all_obj_ids))}")
+    print(f"ObjIDs found: {sorted(x + id_offset for x in set(all_obj_ids))}")
     print(f"Writing masks to: {out_dir}")
     print(f"Frames with annotations: {len(image_id_to_ann)}")
 
     for image_id, image_annotations in sorted(image_id_to_ann.items()):
         image_info = image_id_to_image[image_id]
-        frame_mask = build_frame_mask(image_annotations, image_info)
+        frame_mask = build_frame_mask(image_annotations, image_info, id_offset)
         # Image names need to be like "00000000.png" (not neccesarily with that number of zeros)
         # https://github.com/facebookresearch/sam2/blob/2b90b9f5ceec907a1c18123530e92e794ad901a4/training/dataset/vos_segment_loader.py#L116
         out_mask_path = out_dir / f"{image_info.filepath.stem}.png"
