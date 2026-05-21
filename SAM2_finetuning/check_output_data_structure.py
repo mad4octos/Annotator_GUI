@@ -154,8 +154,9 @@ def check_val_tracker(tracker_dir: Path, gt_ids: set[str], reporter: Reporter) -
             check_files_matching(obs_dir, "*.png", reporter)
 
 
-def check_dataset(root: Path, reporter: Reporter) -> None:
-    check_root(root, "dataset", reporter, check_train, check_val)
+def check_dataset(root: Path, reporter: Reporter, split: str | None = None) -> None:
+    splits = {split} if split else None
+    check_root(root, "dataset", reporter, check_train, check_val, splits=splits)
 
 
 def main() -> None:
@@ -169,10 +170,16 @@ def main() -> None:
         type=Path,
         help="Path to the dataset/ root directory.",
     )
+    parser.add_argument(
+        "--split",
+        choices=["train", "val"],
+        default=None,
+        help="Check only this split (default: check both train and val).",
+    )
     args = parser.parse_args()
 
     reporter = Reporter()
-    check_dataset(args.root.resolve(), reporter)
+    check_dataset(args.root.resolve(), reporter, split=args.split)
     reporter.summary()
 
     sys.exit(1 if reporter.errors else 0)

@@ -76,10 +76,13 @@ def check_root(
     reporter: Reporter,
     check_train_fn: Callable[[Path, Reporter], None],
     check_val_fn: Callable[[Path, Reporter], None],
+    splits: set[str] | None = None,
 ) -> None:
     """Check that root exists, then invoke per-split callbacks for train/ and val/.
 
     check_train_fn and check_val_fn receive the split directory and reporter.
+    Pass *splits* (e.g. `{"train"}`) to restrict which splits are checked;
+    `None` (default) checks both.
     """
     print(_color(f"\nChecking {label} at: {root}", BOLD))
 
@@ -88,6 +91,8 @@ def check_root(
         return
 
     for split, fn in (("TRAIN", check_train_fn), ("VAL", check_val_fn)):
+        if splits is not None and split.lower() not in splits:
+            continue
         split_dir = root / split.lower()
         print(f"\n{'─' * 40}")
         print(_color(split, BOLD))
