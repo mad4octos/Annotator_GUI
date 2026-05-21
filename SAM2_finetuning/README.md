@@ -1,10 +1,10 @@
 This folder contains scripts and configuration for finetuning SAM2 on fish segmentation data and evaluating the result with TrackEval.
-The workflow has three stages: 
-1. Dataset preparation
-   1.a Manual preparation of the raw input data
-   1.b Automatic processing into the formats used for training and validation
+The workflow has five stages:
+1. Prepare the training data
 2. SAM2 model finetuning
-3. Validation of finetuned model(s)
+3. Generate new predictions with the finetuned model
+4. Prepare the validation data
+5. Validation of finetuned model(s)
 
 **Python version requirements:**
 - Main scripts (`prepare_*.py`, `check_*.py`, `convert_*.py`, `validate.py`): **Python ≥ 3.9**
@@ -135,7 +135,7 @@ export PYTHONPATH="<root>/herbfishCV:<root>/herbfishCV/scripts"
 
 ---
 
-## 1. Prepare the dataset
+## 1. Prepare the training dataset
 
 **Scripts used:**
 
@@ -153,11 +153,11 @@ export PYTHONPATH="<root>/herbfishCV:<root>/herbfishCV/scripts"
 
 - **`prepare_val_dataset.py`** — Automates the full val-split preparation pipeline: converts tracker `.pkl` predictions into COCO JSON, converts GT and predicted COCO into DAVIS palette PNGs, and pads both folders so every GT frame has a corresponding prediction mask.
 
-### Step 1 — Prepare the raw data
+### 1.1 — Prepare the raw data
 
 Manually prepare according to section "Input: `raw_data/`"
 
-### Step 2 — Check the input structure
+### 1.2 — Check the input structure
 
 Walk every observation directory under `train/` and `val/` and reports missing files or subdirectories.
 
@@ -168,7 +168,7 @@ python check_input_data_structure.py <root>/raw_data
 
 Add `--create-missing` to scaffold any missing directories (files are not auto-created).
 
-### Step 3 — Prepare the train dataset
+### 1.3 — Prepare the train dataset
 
 Convert reviewed annotations to DAVIS masks, copy JPEG frames, and pad any unannotated frames with blank masks.
 
@@ -179,25 +179,11 @@ python prepare_train_dataset.py \
     --output-data-dir <root>/dataset/train
 ```
 
-### Step 4 — Prepare the val dataset
-
-Convert tracker `.pkl` predictions to COCO JSON, GT and predicted COCO annotations to DAVIS masks, and pads both folders so every GT frame has a corresponding prediction mask.
-
-Ensure `PYTHONPATH` includes `herbfishCV` and `herbfishCV/scripts` (see [Prerequisites](#prerequisites)).
+### 1.4 — Check the train output structure
 
 ```bash
 cd <root>/Annotator_GUI/SAM2_finetuning/
-python prepare_val_dataset.py \
-    --input-data-dir <root>/raw_data/val \
-    --output-data-dir <root>/dataset/val \
-    [--filename_num_zeros N]   # zero-padding width for output filenames (default: 5)
-```
-
-### Step 5 — Check the output structure
-
-```bash
-cd <root>/Annotator_GUI/SAM2_finetuning/
-python check_output_data_structure.py <root>/dataset
+python check_output_data_structure.py --split train <root>/dataset
 ```
 
 ---
@@ -247,12 +233,89 @@ python training/train.py \
 
 ---
 
-## 3. Validate SAM2
+## 3. Generate new predictions with the new model
 
-By this point `prepare_val_dataset.py` has already been run in Step 4, so `dataset/val/` is ready.
-`validate.py` runs TrackEval over that directory and prints results.
+After training completes, the finetuned checkpoint is saved to:
 
-### 3.1 Prerequisites
+```
+<root>/sam2/sam2_logs/configs/<tracker_name>/checkpoints/checkpoint.pt
+```
+
+To generate new predictions for the val observations, use the SAM2 tracking workflow from `SAM2_Tracking/`.
+
+### 3.1 — Configure `template_configs.yaml`
+
+- Edit `<root>/Annotator_GUI/SAM2_Tracking/template_configs.yaml`.
+- Point `sam2_checkpoint` to the new checkpoint and set the val observation paths.
+- Choose a `<tracker_name>` (e.g., `finetuned_sam2`) to identify this model's output in TrackEval results.
+
+```yaml
+sam2_install_dir: "<root>/sam2/sam2/"
+sam2_checkpoint: "<root>/sam2/sam2_logs/sam2.1_hiera_large_finetune/checkpoints/checkpoint.pt"
+model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
+
+frame_dir:
+    - "<root>/raw_data/val/<obs_id_1>/images/val"
+    - "<root>/raw_data/val/<obs_id_2>/images/val"
+
+annotations_file:
+    - "/path/to/<obs_id_1>_annotations.npy"
+    - "/path/to/<obs_id_2>_annotations.npy"
+
+masks_dict_file:
+    - "<root>/raw_data/val/<obs_id_1>/trackers/finetuned_sam2/predictions/<obs_id_1>_masks.pkl"
+    - "<root>/raw_data/val/<obs_id_2>/trackers/finetuned_sam2/predictions/<obs_id_2>_masks.pkl"
+```
+
+Create the `predictions/` directories before running:
+
+```bash
+mkdir -p <root>/raw_data/val/<obs_id_1>/trackers/finetuned_sam2/predictions
+mkdir -p <root>/raw_data/val/<obs_id_2>/trackers/finetuned_sam2/predictions
+```
+
+### 3.2 — Run the SAM2 tracking workflow
+
+```bash
+conda activate sam2-env
+cd <root>/Annotator_GUI/SAM2_Tracking/
+python main.py
+```
+
+The `.pkl` files are written to the paths specified in `masks_dict_file`.
+
+---
+
+## 4. Prepare the validation dataset
+
+### 4.1 — Run val dataset preparation
+
+Convert tracker `.pkl` predictions to COCO JSON, GT and predicted COCO annotations to DAVIS masks, and pad both folders so every GT frame has a corresponding prediction mask.
+
+Ensure `PYTHONPATH` includes `herbfishCV` and `herbfishCV/scripts` (see [Prerequisites](#prerequisites)).
+
+```bash
+cd <root>/Annotator_GUI/SAM2_finetuning/
+python prepare_val_dataset.py \
+    --input-data-dir <root>/raw_data/val \
+    --output-data-dir <root>/dataset/val \
+    [--filename_num_zeros N]   # zero-padding width for output filenames (default: 5)
+```
+
+### 4.2 — Check the val output structure
+
+```bash
+cd <root>/Annotator_GUI/SAM2_finetuning/
+python check_output_data_structure.py --split val <root>/dataset
+```
+
+---
+
+## 5. Validate SAM2
+
+`validate.py` runs TrackEval over the val directory and prints results.
+
+### 5.1 Prerequisites
 
 TrackEval requires Python 3.8. Use conda to create an isolated environment for it:
 
@@ -277,14 +340,13 @@ git clone https://github.com/JonathonLuiten/TrackEval
 `raw_data/val/` must be fully populated (see the input structure above), with at least one tracker's
 `trackers/<tracker_name>/predictions/*.pkl` present under each observation directory.
 
-### 3.2 Run validation
+### 5.2 Run validation
 
 ```bash
 cd <root>/Annotator_GUI/SAM2_finetuning/
 python validate.py \
     --val-dir       <root>/dataset/val \
-    --trackeval-dir <root>/TrackEval \
-    [--results-dir  <root>/results]     # optional; default: results/ next to dataset/
+    --trackeval-dir <root>/TrackEval 
 ```
 
-Results are printed to stdout and written to `results/` (or the path given via `--results-dir`).
+Results are printed to stdout and written to `results/`.
