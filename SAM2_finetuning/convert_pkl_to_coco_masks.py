@@ -7,8 +7,9 @@ per frame.
 Usage:
     python convert_pkl_to_coco_masks.py \
         --masks_path /path/to/masks.pkl \
+        --coco-file /path/to/existing.json \
+        --images_path /path/to/frames \
         --output_path /path/to/output \
-        [--images_path /path/to/frames] \
         [--obs_id <id>] \
         [--class_name <name>] \
         [--filename_num_zeros <n>] \
@@ -16,10 +17,9 @@ Usage:
 
 Arguments:
     --masks_path          Path to the SAM2 masks .pkl file.
+    --coco-file           Path to an existing COCO JSON file used to infer the frame step.
+    --images_path         Path to the directory containing the extracted image frames.
     --output_path         Root output directory. COCO JSON is written under <output_path>/coco/.
-    --images_path         (Optional) Path to the directory containing the extracted image frames.
-                          When omitted, image dimensions are inferred from the mask tensors and
-                          no image files are read.
     --obs_id              Observation identifier used as the dataset name (default: obs).
     --class_name          Object class name (default: fish).
     --filename_num_zeros  Zero-padding width for frame filenames (default: 5).
