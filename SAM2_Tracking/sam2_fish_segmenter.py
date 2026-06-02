@@ -355,7 +355,7 @@ class SAM2FishSegmenter:
 
             frame_masks = {key: {} for key in range(len(self.frame_paths))}
             for obj_id, obj_df in df.groupby("ObjID"):
-                start_frame_idx = int(df[frame_idx_colname].min())
+                start_frame_idx = int(obj_df[frame_idx_colname].min())
                 num_frames = len(obj_df)
 
                 self.predictor.reset_state(self.inference_state)
