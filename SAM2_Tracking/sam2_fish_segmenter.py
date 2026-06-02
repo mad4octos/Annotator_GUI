@@ -349,14 +349,15 @@ class SAM2FishSegmenter:
             obj_id_colname = self.configs["obj_id_name"]
             bbox_colname = self.configs["bbox_name"]
             annotations_filename = self.configs["annotations_file"]
-            
+            min_num_frames_to_propagate = self.configs["min_num_frames_to_propagate"]
+
             df = pd.read_csv(annotations_filename, index_col=obj_id_colname)
             df[bbox_colname] = df[bbox_colname].apply(ast.literal_eval)
 
             frame_masks = {key: {} for key in range(len(self.frame_paths))}
             for obj_id, obj_df in df.groupby("ObjID"):
                 start_frame_idx = int(obj_df[frame_idx_colname].min())
-                num_frames = len(obj_df)
+                num_frames = max(len(obj_df), min_num_frames_to_propagate)
 
                 self.predictor.reset_state(self.inference_state)
                 self.add_box_annotations(annotations=obj_df)

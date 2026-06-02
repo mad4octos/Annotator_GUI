@@ -78,6 +78,9 @@ async_loading_frames: False
 # The type of prompt to use for segmentation. Accepted values: 'points' or 'bboxes'
 prompt_type: 'points'
 
+# Minimum number of frames to propagate per object from its first annotated frame
+min_num_frames_to_propagate: 10
+
 # The name and location to save the dictionary of masks.
 masks_dict_file: 
     - './trial_1_generated_frame_masks.pkl'
