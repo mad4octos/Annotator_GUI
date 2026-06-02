@@ -79,7 +79,7 @@ async_loading_frames: False
 prompt_type: 'points'
 
 # Minimum number of frames to propagate per object from its first annotated frame
-min_num_frames_to_propagate: 10
+min_num_frames_to_propagate: 3
 
 # The name and location to save the dictionary of masks.
 masks_dict_file: 
