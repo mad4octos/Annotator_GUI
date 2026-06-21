@@ -349,24 +349,26 @@ class SAM2FishSegmenter:
             obj_id_colname = self.configs["obj_id_name"]
             bbox_colname = self.configs["bbox_name"]
             annotations_filename = self.configs["annotations_file"]
-            min_num_frames_to_propagate = self.configs["min_num_frames_to_propagate"]
+            max_num_frames_to_propagate = self.configs["max_num_frames_to_propagate"]
 
             df = pd.read_csv(annotations_filename, index_col=obj_id_colname)
             df[bbox_colname] = df[bbox_colname].apply(ast.literal_eval)
 
             frame_masks = {key: {} for key in range(len(self.frame_paths))}
-            for obj_id, obj_df in df.groupby("ObjID"):
-                start_frame_idx = int(obj_df[frame_idx_colname].min())
-                num_frames = max(len(obj_df), min_num_frames_to_propagate)
+            for obj_id, obj_df in df.groupby(obj_id_colname):
+                obj_df = obj_df.sort_values(frame_idx_colname)
+                for i in range(len(obj_df)):
+                    prompt_row = obj_df.iloc[[i]]
+                    start_frame_idx = int(prompt_row[frame_idx_colname].iloc[0])
 
-                self.predictor.reset_state(self.inference_state)
-                self.add_box_annotations(annotations=obj_df)
+                    self.predictor.reset_state(self.inference_state)
+                    self.add_box_annotations(annotations=prompt_row)
 
-                self.get_masks(
-                    frame_masks=frame_masks,
-                    start_frame_idx=start_frame_idx,
-                    max_frame_num_to_track=num_frames,
-                )
+                    self.get_masks(
+                        frame_masks=frame_masks,
+                        start_frame_idx=start_frame_idx,
+                        max_frame_num_to_track=max_num_frames_to_propagate,
+                    )
         else:
             raise ValueError(
                 "The only accepted values for `prompt_type` are `points` and `bboxes`."
