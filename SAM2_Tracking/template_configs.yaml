@@ -50,6 +50,12 @@ points_name: 'Location'
 # Key in the annotation corresponding to SAM2 labels
 labels_name: 'ClickType'
 
+# Key in the annotation corresponding to SAM2 bounding boxes
+bbox_name: 'BBox'
+
+# Key in the annotation corresponding to the object type label
+obj_type_name: 'ObjType'
+
 #################################################
 # set_inference_state specific configurations   #
 #################################################
@@ -68,6 +74,12 @@ async_loading_frames: False
 ###########################################
 # run_propagation specific configurations #
 ###########################################
+
+# The type of prompt to use for segmentation. Accepted values: 'points' or 'bboxes'
+prompt_type: 'points'
+
+# Maximum number of frames to propagate per object from its first annotated frame.
+max_num_frames_to_propagate: 3
 
 # The name and location to save the dictionary of masks.
 masks_dict_file: 

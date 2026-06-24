@@ -420,7 +420,7 @@ def run_segmentation(config_file, device):
         # Initialize the segmenter with modified trial configs
         segmenter = SAM2FishSegmenter(configs = trial_config, device = device)
         print(f"Processing Trial {i}: Frames from {trial_config['frame_dir']}, Annotations from {trial_config['annotations_file']}, Masks saving to {trial_config['masks_dict_file']}")
-        segmenter.run_propagation()
+        segmenter.run_propagation(prompt_type=trial_config['prompt_type'])
 
 def adjust_annotations(annotations_file=None, fps=None, out_fps=None, SAM2_start=None, 
                        df_columns=None, frame_col_name=None):
