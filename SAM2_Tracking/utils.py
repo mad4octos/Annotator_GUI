@@ -581,6 +581,9 @@ def get_frame_chunks_df(df=None, obj_name=None, frame_name=None, click_type_name
     # Turn obj_name column back to a string 
     enter_frame[obj_name] = enter_frame[obj_name].astype(str) 
 
+    # Ensure the annotation dataframe uses the same ObjID type
+    df[obj_name] = df[obj_name].astype(str)
+
     # Concatenate columns to improve ease of use later
     obj_frame_chunks = pd.concat([enter_frame.reset_index(drop=True), exit_frame.reset_index(drop=True)], axis=1)
     obj_frame_chunks.columns = [obj_name, 'EnterFrame', 'ExitFrame']
